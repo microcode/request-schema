@@ -40,6 +40,19 @@ describe('Schema', function () {
         await schema.run(readMethod,'/foo/' + id + '/bar');
     });
 
+    it('should allow most function signatures', async function () {
+        const schema = new Schema(['read']);
+
+        schema.on('read', '/foo/:a', function func(a) {});
+        schema.on('read', '/foo/:a/:b', async function func(a,b) {});
+        schema.on('read', '/foo/:a', (a) => {});
+        schema.on('read', '/foo/:a/:b', async (a,b) => {});
+    });
+
+    it('should not allow unknown arguments', async function () {
+        schema.on('read', '/foo', function func(a) {});
+    });
+
     it('should not allow registering urls on non-existing methods', async function () {
         const schema = new Schema(['a']);
 
