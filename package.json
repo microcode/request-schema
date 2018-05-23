@@ -1,0 +1,29 @@
+{
+  "name": "@microcode/request-schema",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib",
+    "test": "test"
+  },
+  "scripts": {
+    "test": "mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/microcode/request-schema.git"
+  },
+  "author": "Jesper Svennevid",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/microcode/request-schema/issues"
+  },
+  "homepage": "https://github.com/microcode/request-schema#readme",
+  "devDependencies": {
+    "mocha": "^5.2.0"
+  },
+  "dependencies": {
+    "@microcode/pathtree": "^0.0.1"
+  }
+}
