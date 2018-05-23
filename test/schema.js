@@ -20,11 +20,11 @@ describe('Schema', function () {
         });
 
         await schema.run(readMethod, testUrl).then(response => {
-            assert(response.data === 0);
+            assert(response && response.data === 0);
         });
         await schema.run(writeMethod, testUrl, { data: 1 });
         await schema.run(readMethod, testUrl).then(response => {
-            assert(response.data === 1);
+            assert(response && response.data === 1);
         });
     });
 
