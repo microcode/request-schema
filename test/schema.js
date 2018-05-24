@@ -85,4 +85,17 @@ describe('Schema', function () {
 
         await schema.run('read', '/foo', {}, { value: value });
     });
+
+    it('can override data and context parameter names', async function () {
+        const schema = new Schema(['read'], {
+            data: 'foo',
+            context: 'bar'
+        });
+
+        schema.on('read', '/test', (foo) => {});
+        schema.on('read', '/test', (bar) => {});
+
+        assert.throws(() => { schema.on('read', '/test', (data) => {}); }, Error);
+        assert.throws(() => { schema.on('read', '/test', (context) => {}); }, Error);
+    });
 });
