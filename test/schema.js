@@ -34,7 +34,7 @@ describe('Schema', function () {
         const id = '1234';
 
         schema.on(readMethod, '/foo/:test_id/bar', async test_id => {
-            assert.equal(test_id === id);
+            assert.equal(test_id, id);
         });
 
         await schema.run(readMethod,'/foo/' + id + '/bar');
@@ -43,19 +43,46 @@ describe('Schema', function () {
     it('should allow most function signatures', async function () {
         const schema = new Schema(['read']);
 
-        schema.on('read', '/foo/:a', function func(a) {});
-        schema.on('read', '/foo/:a/:b', async function func(a,b) {});
-        schema.on('read', '/foo/:a', (a) => {});
-        schema.on('read', '/foo/:a/:b', async (a,b) => {});
+        await schema.on('read', '/foo/:a', function func(a) {});
+        await schema.on('read', '/foo/:a/:b', async function func(a,b) {});
+        await schema.on('read', '/foo/:a', (a) => {});
+        await schema.on('read', '/foo/:a/:b', async (a,b) => {});
     });
 
     it('should not allow unknown arguments', async function () {
-        schema.on('read', '/foo', function func(a) {});
+        const schema = new Schema(['read']);
+        assert.throws(() => { schema.on('read', '/foo', function func(a) {}); }, Error);
     });
 
     it('should not allow registering urls on non-existing methods', async function () {
         const schema = new Schema(['a']);
 
         assert.throws(() => { schema.on('b', '/test') }, Error);
+    });
+
+    it('can access context variable', async function () {
+        const schema = new Schema(['read']);
+        const value = '1234';
+
+        schema.on('read', '/foo', function foo() {
+            assert.equal(this.value, value);
+        });
+        schema.on('read', '/foo2', (context) => {
+            assert.equal(context.value, value);
+        });
+
+        await schema.run('read', '/foo', {}, { value: value });
+        await schema.run('read', '/foo2', {}, { value: value });
+    });
+
+    it('cannot access context variable via this on expression statements', async function () {
+        const schema = new Schema(['read']);
+        const value = '1234';
+
+        schema.on('read', '/foo', () => {
+            assert.notEqual(this.value, value);
+        });
+
+        await schema.run('read', '/foo', {}, { value: value });
     });
 });
