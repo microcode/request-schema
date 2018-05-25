@@ -43,6 +43,7 @@ describe('Schema', function () {
     it('should allow most function signatures', async function () {
         const schema = new Schema(['read']);
 
+        await schema.on('read', '/foo/:a', function (a) {});
         await schema.on('read', '/foo/:a', function func(a) {});
         await schema.on('read', '/foo/:a/:b', async function func(a,b) {});
         await schema.on('read', '/foo/:a', (a) => {});
