@@ -26,8 +26,8 @@ schema.on(method, path, [filters], func) - Register a function on a specific met
 
 The function arguments are dynamic (determined when registered), and supports all extracted parameters in the path, along with two special parameters `data` and `context`.
 
-* Normal functions must be named (limitation due to esprima right now), and `context` is used as the context for the function call.
-* Arrow functions requires `context` as a parameter since the context is already overriden.
+* For normal functions, `context` is used as the context for the function call.
+* Arrow functions requires `context` as a parameter since the context is already overridden.
 
 You can register multiple functions on the same path. If a filter on a function fails (due to e.g. missing authorization), the next function will attempt to run.
 
