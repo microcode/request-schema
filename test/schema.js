@@ -55,6 +55,47 @@ describe('Schema', function () {
         assert.throws(() => { schema.on('read', '/foo', function func(a) {}); }, Error);
     });
 
+    it('should allow extra arguments', async function () {
+        const method = 'emit';
+        let origValue = 'bar';
+        let valueName = 'value';
+        let paramValue = '1234';
+        const schema = new Schema([method], { extra: [valueName] });
+
+        let matched = false, called = false;
+        await schema.on(method, '/foo/:a', function (value, a) {
+            if (a !== paramValue) throw new Error("Parameter not matching");
+            if (value === origValue) matched = true;
+            called = true;
+        });
+
+        await schema.run(method, '/foo/1234', {}, {}, new Map([[valueName, origValue]]));
+
+        assert.equal(called, true);
+        assert.equal(matched, true);
+    });
+
+    it('should fail calling if an argument value cannot be found', async function () {
+        const method = 'emit';
+        let origValue = 'bar';
+        let valueName = 'value';
+        let paramValue = '1234';
+        const schema = new Schema([method], { extra: [valueName] });
+
+        let called = false;
+        await schema.on(method, '/foo/:a', function (value, a) {
+            called = true;
+        });
+
+        try {
+            await schema.run(method, '/foo/1234');
+        } catch (err) {
+            assert.equal(err.message, "Argument value not found");
+        }
+
+        assert.equal(called, false);
+    });
+
     it('should not allow registering urls on non-existing methods', async function () {
         const schema = new Schema(['a']);
 
