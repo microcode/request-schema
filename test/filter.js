@@ -71,7 +71,7 @@ describe('Filter', function () {
     it('can register functions to run after a successful resolve', async function () {
         class TestFilter extends Filter {
             async run(filterData) {
-                filterData.on_resolve(() => {});
+                filterData.on_completed(() => {});
             }
         }
 
