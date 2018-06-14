@@ -148,6 +148,12 @@ describe('Schema', function () {
         assert.equal(true, function_executed, "Function has not executed");
     });
 
+    it('fails to register method if filter is not inheriting from Filter', async function () {
+        const schema = new Schema(['read']);
+
+        assert.throws(() => { schema.on('read', '/foo', () => {}, () => {}); }, Error);
+    });
+
     it('does not run function if filter rejects', async function () {
         const schema = new Schema(['read']);
 
