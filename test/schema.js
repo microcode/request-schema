@@ -128,6 +128,28 @@ describe('Schema', function () {
         await schema.run('read', '/foo', {}, { value: value });
     });
 
+    it('contains path in filter data', async function () {
+        const schema = new Schema(['read']);
+        const path = '/foo';
+
+        let filter_executed = false;
+        class TestFilter extends Filter {
+            async run(data) {
+                assert.equal(data.path, path);
+                filter_executed = true;
+            }
+        }
+
+        let function_executed = false;
+        schema.on('read', path, new TestFilter(), () => {
+            assert.equal(true, filter_executed, "Filter has not executed");
+            function_executed = true;
+        });
+
+        await schema.run('read', '/foo', {}, {});
+        assert.equal(true, function_executed, "Function has not executed");
+    });
+
     it('runs filter before calling the function', async function () {
         const schema = new Schema(['read']);
 

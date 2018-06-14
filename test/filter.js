@@ -9,7 +9,7 @@ describe('Filter', function () {
             async run(filterData) {}
         }
 
-        const filterData = new FilterData("", {}, {}, {}, () => {}, () => {});
+        const filterData = new FilterData("", "", {}, {}, {}, () => {}, () => {});
         const filter = new TestFilter();
 
         await filter.run(filterData);
@@ -23,7 +23,7 @@ describe('Filter', function () {
         }
 
         let err = undefined;
-        const filterData = new FilterData("", {}, {}, {}, () => {}, (_err) => {
+        const filterData = new FilterData("", "", {}, {}, {}, () => {}, (_err) => {
             err = _err;
         });
         const filter = new TestFilter();
@@ -40,7 +40,7 @@ describe('Filter', function () {
         }
 
         let err = undefined;
-        const filterData = new FilterData("", {}, {}, {}, () => {}, (_err) => {
+        const filterData = new FilterData("", "", {}, {}, {}, () => {}, (_err) => {
             err = _err;
         });
         const filter = new TestFilter();
@@ -57,7 +57,7 @@ describe('Filter', function () {
         }
 
         let data = undefined, err = undefined;
-        const filterData = new FilterData("", {}, {}, {}, (_data) => { data = _data; }, (_err) => {
+        const filterData = new FilterData("", "", {}, {}, {}, (_data) => { data = _data; }, (_err) => {
             err = _err;
         });
         const filter = new TestFilter();
@@ -76,7 +76,7 @@ describe('Filter', function () {
         }
 
         let functions = [];
-        const filterData = new FilterData("", {}, {}, {}, () => {}, () => {}, (func) => { functions.push(func); });
+        const filterData = new FilterData("", "", {}, {}, {}, () => {}, () => {}, (func) => { functions.push(func); });
         const filter = new TestFilter();
 
         await filter.run(filterData);
