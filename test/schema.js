@@ -251,7 +251,8 @@ describe('Schema', function () {
         let callback_executed = false;
         class TestFilter extends Filter {
             async run(filterData) {
-                filterData.on_resolve((data, context) => {
+                filterData.on_completed((err, data, context) => {
+                    assert(!err);
                     assert.equal(data, testData);
                     assert.equal(context.is_context, true);
                     callback_executed = true;
@@ -281,7 +282,7 @@ describe('Schema', function () {
 
         class TestFilter1 extends Filter {
             async run(filterData) {
-                filterData.on_resolve(() => {
+                filterData.on_completed(() => {
                     throw new Error("Should not execute");
                 });
             }
@@ -290,7 +291,8 @@ describe('Schema', function () {
         let callback_executed = false;
         class TestFilter2 extends Filter {
             async run(filterData) {
-                filterData.on_resolve((data, context) => {
+                filterData.on_completed((err, data, context) => {
+                    assert(!err);
                     assert.equal(data, testData);
                     assert.equal(context.is_context, true);
                     callback_executed = true;
