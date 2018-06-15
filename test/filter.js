@@ -28,7 +28,11 @@ describe('Filter', function () {
         });
         const filter = new TestFilter();
 
-        await filter.run(filterData);
+        try {
+            await filter.run(filterData);
+        } catch (err) {
+            filterData.reject(err);
+        }
         assert(err !== undefined);
     });
 
