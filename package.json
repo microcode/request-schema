@@ -25,8 +25,9 @@
   },
   "dependencies": {
     "@microcode/pathtree": "^0.0.1",
+    "debug": "^3.1.0",
+    "esprima": "^4.0.0",
     "lodash.first": "^3.0.0",
-    "lodash.isfunction": "^3.0.9",
-    "esprima": "^4.0.0"
+    "lodash.isfunction": "^3.0.9"
   }
 }
