@@ -309,6 +309,47 @@ describe('Schema', function () {
         assert.equal(resolve_err.message, "on_resolve already called");
     });
 
+    it('won\'t run second filter if first one fails', async function () {
+        const method = 'read';
+        const path = '/foo';
+        const testData = '1234';
+
+        const schema = new Schema([method]);
+
+        let filter1 = false, filter2 = false, func = false;
+
+        class TestFilter1 extends Filter {
+            async run(data) {
+                filter1 = true;
+                throw new Error("This should happen");
+            }
+        }
+
+        class TestFilter2 extends Filter {
+            async run(data) {
+                filter2 = true;
+                throw new Error("This should not happen");
+            }
+        }
+
+        schema.on(method, path, new TestFilter1(), new TestFilter2(), function () {
+            func = true;
+            return testData;
+        });
+
+        let resolve_err = undefined;
+        try {
+            await schema.run(method, path);
+        } catch (err) {
+            resolve_err = err;
+        }
+
+        assert.equal(resolve_err.message, "This should happen");
+        assert.equal(filter1, true);
+        assert.equal(filter2, false);
+        assert.equal(func,false);
+    });
+
     it('can run resolve callbacks registered by a filter', async function () {
         const schema = new Schema(['read']);
         const testData = "test";
