@@ -226,7 +226,7 @@ describe('Schema', function () {
 
         class TestFilter extends Filter {
             async run(filterData) {
-                filterData.resolve("test");
+                await filterData.resolve("test");
             }
         }
 
@@ -241,6 +241,74 @@ describe('Schema', function () {
         assert.equal(data, "test");
     });
 
+    it('won\'t run the second function if the first one succeeds', async function () {
+        const method = 'read';
+        const path = '/foo';
+        const testData = '1234';
+
+        const schema = new Schema([method]);
+
+        schema.on(method, path, function () {
+            return testData;
+        });
+        schema.on(method, path, function () {
+            throw new Error("Should not execute");
+        });
+
+        assert.equal(await schema.run(method, path), testData);
+    });
+
+    it('won\'t run filters for the second function if the first one succeeds', async function () {
+        const method = 'read';
+        const path = '/foo';
+        const testData = '1234';
+
+        const schema = new Schema([method]);
+
+        class TestFilter extends Filter {
+            async run() {
+                throw new Error("Should not execute");
+            }
+        }
+
+        schema.on(method, path, function () {
+            return testData;
+        });
+        schema.on(method, path, new TestFilter(), function () {
+            throw new Error("Should not execute");
+        });
+
+        assert.equal(await schema.run(method, path), testData);
+    });
+
+    it('won\'t allow a filter to resolve twice', async function () {
+        const method = 'read';
+        const path = '/foo';
+        const testData = '1234';
+
+        const schema = new Schema([method]);
+
+        class TestFilter extends Filter {
+            async run(data) {
+                await data.resolve(testData);
+                await data.resolve(testData);
+            }
+        }
+
+        schema.on(method, path, new TestFilter(), function () {
+            return testData;
+        });
+
+        let resolve_err = undefined;
+        try {
+            await schema.run(method, path);
+        } catch (err) {
+            resolve_err = err;
+        }
+
+        assert.equal(resolve_err.message, "on_resolve already called");
+    });
+
     it('can run resolve callbacks registered by a filter', async function () {
         const schema = new Schema(['read']);
         const testData = "test";
@@ -251,7 +319,7 @@ describe('Schema', function () {
         let callback_executed = false;
         class TestFilter extends Filter {
             async run(filterData) {
-                filterData.on_completed((err, data, context) => {
+                await filterData.on_completed((err, data, context) => {
                     assert(!err);
                     assert.equal(data, testData);
                     assert.equal(context.is_context, true);
@@ -273,47 +341,39 @@ describe('Schema', function () {
         assert.equal(data, testData);
     });
 
-    it('won\'t run resolve callbacks registered by earlier filters', async function () {
+    it('will execute completion callbacks in reverse order', async function () {
         const schema = new Schema(['read']);
         const testData = "test";
         const testContext = {
             is_context: true
         };
 
+        let count = 0;
+        let last = 0;
+
         class TestFilter1 extends Filter {
             async run(filterData) {
-                filterData.on_completed(() => {
-                    throw new Error("Should not execute");
+                await filterData.on_completed(() => {
+                    count++;
+                    last = 1;
                 });
             }
         }
 
-        let callback_executed = false;
         class TestFilter2 extends Filter {
             async run(filterData) {
-                filterData.on_completed((err, data, context) => {
-                    assert(!err);
-                    assert.equal(data, testData);
-                    assert.equal(context.is_context, true);
-                    callback_executed = true;
+                await filterData.on_completed(() => {
+                    count++;
+                    last = 2;
                 });
             }
         }
 
-        schema.on('read', '/foo', new TestFilter1(), () => {
-            throw new Error("This function fails");
-        });
+        schema.on('read', '/foo', new TestFilter1(), new TestFilter2(), () => {});
 
-        let function_executed = true;
-        schema.on('read', '/foo', new TestFilter2(), () => {
-            function_executed = true;
-            return testData;
-        });
+        await schema.run('read', '/foo', {}, testContext);
 
-        const data = await schema.run('read', '/foo', {}, testContext);
-
-        assert.equal(function_executed, true, "Function should execute");
-        assert.equal(callback_executed, true, "Callback should execute");
-        assert.equal(data, testData);
+        assert.equal(count, 2);
+        assert.equal(last, 1);
     });
 });
