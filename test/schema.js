@@ -417,4 +417,42 @@ describe('Schema', function () {
         assert.equal(count, 2);
         assert.equal(last, 1);
     });
+
+    it('can retrieve arguments for node', async function () {
+        const readMethod = 'read';
+        const schema = new Schema([readMethod]);
+
+        schema.on(readMethod, '/test/:value', async () => {});
+
+        const capture = new Map();
+        const nodeData = schema.get(readMethod, '/test/1234', capture);
+        assert(!!nodeData);
+        assert.equal(nodeData.entries.length, 1);
+
+        assert(capture.has('value'));
+        assert.equal(capture.get('value'), '1234');
+    });
+
+    it('can enumerate filters on nodes', async function () {
+        const testUrl = '/test';
+        const readMethod = 'read';
+        const schema = new Schema([readMethod]);
+
+        class TestFilter extends Filter {
+        }
+
+        schema.on(readMethod, testUrl, new TestFilter(), async () => {});
+
+        const nodeData = schema.get(readMethod, testUrl);
+        assert(!!nodeData);
+        assert.equal(nodeData.entries.length, 1);
+
+        const entry = nodeData.entries[0];
+        assert(!!entry);
+        assert.equal(entry.filters.length, 1);
+
+        const filter = entry.filters[0];
+        assert(!!filter);
+        assert(filter instanceof TestFilter);
+    });
 });
