@@ -221,6 +221,39 @@ describe('Schema', function () {
         assert.equal(function2_executed, true, "Second function should execute");
     });
 
+    it('won\'t run the second function if first is rejected with a non-filtered error', async function () {
+        const schema = new Schema(['read'], {
+            filter_error: (err) => false
+        });
+
+        class TestFilter extends Filter {
+            async run() {
+                throw new Error("Rejected");
+            }
+        }
+
+        let function1_executed = false, function2_executed = false;
+        schema.on('read', '/foo', new TestFilter(), () => {
+            function1_executed = true;
+        });
+        schema.on('read', '/foo', () => {
+            function2_executed = true;
+        });
+
+        let err = undefined;
+        try {
+            await schema.run('read', '/foo', {}, {});
+        } catch (_err) {
+            err = _err;
+        }
+
+        assert(!!err, "Method should throw");
+        assert.equal(err.message, "Rejected");
+
+        assert.equal(function1_executed, false, "First function should not execute");
+        assert.equal(function2_executed, false, "Second function should not execute");
+    });
+
     it('can be resolved early by a filter', async function () {
         const schema = new Schema(['read']);
 
