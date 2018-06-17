@@ -40,6 +40,27 @@ describe('Schema', function () {
         await schema.run(readMethod,'/foo/' + id + '/bar');
     });
 
+    it('should run methods with query parameters properly', async function () {
+        const readMethod = 'read';
+        const schema = new Schema([readMethod]);
+        const id = '1234';
+        const q1_value = '5678';
+        const q2_value = '0246';
+
+        let function_executed = false;
+        schema.on(readMethod, '/foo/:test_id/bar?q1=:q1&q2=:q2', async (test_id,q1,q2) => {
+            assert.equal(test_id, id);
+            assert.equal(q1, q1_value);
+            assert.equal(q2, q2_value);
+            function_executed = true;
+        });
+
+        await schema.run(readMethod,'/foo/' + id + '/bar?q1=' + q1_value + '&q2=' + q2_value);
+
+        assert.equal(function_executed, true);
+    });
+
+
     it('should allow most function signatures', async function () {
         const schema = new Schema(['read']);
 
