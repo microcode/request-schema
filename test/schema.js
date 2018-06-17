@@ -487,6 +487,112 @@ describe('Schema', function () {
         assert.equal(capture.get('value'), '1234');
     });
 
+    it('should properly handle filters scheduling execution', async function () {
+        const testUrl = '/test';
+        const readMethod = 'read';
+        const schema = new Schema([readMethod]);
+
+        class QueueFilter extends Filter {
+            constructor() {
+                super();
+                this._queue = [];
+            }
+
+            async run(data) {
+                return new Promise(resolve => {
+                    this._queue.push({ data, resolve });
+                    if (this._queue.length > 1) {
+                        return;
+                    }
+                    this.pop();
+                });
+            }
+
+            pop() {
+                if (!this._queue.length) {
+                    return;
+                }
+
+                const entry = this._queue[0];
+                entry.data.on_completed(() => {
+                    this._queue.shift();
+                    this.pop();
+                });
+
+                entry.resolve();
+            }
+        }
+
+        const sleep = async (timeout) => new Promise(resolve => setTimeout(resolve, timeout));
+
+        let function_calls = 0;
+        schema.on(readMethod, testUrl, new QueueFilter(), async () => {
+            await sleep(5);
+            function_calls++;
+        });
+
+        await Promise.all([
+            schema.run(readMethod, testUrl),
+            schema.run(readMethod, testUrl),
+            schema.run(readMethod, testUrl)
+        ]);
+
+        assert.equal(function_calls, 3);
+    });
+
+    it('should properly handle errors while filters scheduling execution', async function () {
+        const testUrl = '/test';
+        const readMethod = 'read';
+        const schema = new Schema([readMethod]);
+
+        class QueueFilter extends Filter {
+            constructor() {
+                super();
+                this._queue = [];
+            }
+
+            async run(data) {
+                return new Promise(resolve => {
+                    this._queue.push({ data, resolve });
+                    if (this._queue.length > 1) {
+                        return;
+                    }
+                    this.pop();
+                });
+            }
+
+            pop() {
+                if (!this._queue.length) {
+                    return;
+                }
+
+                const entry = this._queue[0];
+                entry.data.on_completed(() => {
+                    this._queue.shift();
+                    this.pop();
+                });
+
+                entry.resolve();
+            }
+        }
+
+        let function_calls = 0, function_failures = 0;
+        schema.on(readMethod, "/test?q=:a", new QueueFilter(), async (q) => {
+            assert.equal(q, "1");
+            function_calls++;
+        });
+
+        await Promise.all([
+            schema.run(readMethod, "/test").catch(() => { function_failures++; }),
+            schema.run(readMethod, "/test").catch(() => { function_failures++; }),
+            schema.run(readMethod, "/test?q=1")
+        ]);
+
+        assert.equal(function_calls, 1);
+        assert.equal(function_failures, 2);
+    });
+
+
     it('can enumerate filters on nodes', async function () {
         const testUrl = '/test';
         const readMethod = 'read';
