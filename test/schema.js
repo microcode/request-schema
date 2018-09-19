@@ -615,4 +615,29 @@ describe('Schema', function () {
         assert(!!filter);
         assert(filter instanceof TestFilter);
     });
+
+    it('should decode URI components properly for arguments', async function () {
+        const readMethod = 'read';
+        const schema = new Schema([readMethod]);
+        const testValue1 = "ÅÄÖ";
+        const testValue2 = "ABC/DEF";
+
+        let function_executed1 = false;
+        schema.on(readMethod, '/foo/:value', async (value) => {
+            assert.equal(value, testValue1);
+            function_executed1 = true;
+        });
+
+        let function_executed2 = false;
+        schema.on(readMethod, '/bar/:value', async (value) => {
+            assert.equal(value, testValue2);
+            function_executed2 = true;
+        });
+
+        await schema.run(readMethod,'/foo/' + encodeURIComponent(testValue1));
+        await schema.run(readMethod,'/bar/' + encodeURIComponent(testValue2));
+
+        assert.equal(function_executed1, true);
+        assert.equal(function_executed2, true);
+    });
 });
