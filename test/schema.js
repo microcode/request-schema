@@ -96,7 +96,7 @@ describe('Schema', function () {
         assert.equal(matched, true);
     });
 
-    it('should fail calling if an argument value cannot be found', async function () {
+    it('should fail calling if a node argument value cannot be found', async function () {
         const method = 'emit';
         let origValue = 'bar';
         let valueName = 'value';
@@ -639,5 +639,36 @@ describe('Schema', function () {
 
         assert.equal(function_executed1, true);
         assert.equal(function_executed2, true);
+    });
+
+    it('should handle optional argument with value', async function () {
+        const readMethod = 'read';
+        const schema = new Schema([readMethod]);
+        const q_value = '5678';
+
+        let function_executed = false;
+        schema.on(readMethod, '/foo?q=:q', async (q) => {
+            assert.equal(q, q_value);
+            function_executed = true;
+        });
+
+        await schema.run(readMethod,'/foo?q=' + q_value);
+
+        assert.equal(function_executed, true);
+    });
+
+    it('should handle optional argument without value', async function () {
+        const readMethod = 'read';
+        const schema = new Schema([readMethod]);
+
+        let function_executed = false;
+        schema.on(readMethod, '/foo?q=:q', async (q) => {
+            assert.equal(q, undefined);
+            function_executed = true;
+        });
+
+        await schema.run(readMethod,'/foo');
+
+        assert.equal(function_executed, true);
     });
 });
