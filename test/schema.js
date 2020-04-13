@@ -19,12 +19,12 @@ describe('Schema', function () {
             store = data;
         });
 
-        await schema.run(readMethod, testUrl).then(response => {
-            assert(response && response.data === 0);
+        await schema.run(readMethod, testUrl).then(result => {
+            assert(result.value && result.value.data === 0);
         });
         await schema.run(writeMethod, testUrl, { data: 1 });
-        await schema.run(readMethod, testUrl).then(response => {
-            assert(response && response.data === 1);
+        await schema.run(readMethod, testUrl).then(result => {
+            assert(result.value && result.value.data === 1);
         });
     });
 
@@ -289,10 +289,10 @@ describe('Schema', function () {
             function_executed = true;
         });
 
-        const data = await schema.run('read', '/foo', {}, {});
+        const result = await schema.run('read', '/foo', {}, {});
 
         assert.equal(function_executed, false, "Function should not execute");
-        assert.equal(data, "test");
+        assert.equal(result.value, "test");
     });
 
     it('won\'t run the second function if the first one succeeds', async function () {
@@ -309,7 +309,7 @@ describe('Schema', function () {
             throw new Error("Should not execute");
         });
 
-        assert.equal(await schema.run(method, path), testData);
+        assert.equal((await schema.run(method, path)).value, testData);
     });
 
     it('won\'t run filters for the second function if the first one succeeds', async function () {
@@ -332,7 +332,7 @@ describe('Schema', function () {
             throw new Error("Should not execute");
         });
 
-        assert.equal(await schema.run(method, path), testData);
+        assert.equal((await schema.run(method, path)).value, testData);
     });
 
     it('won\'t allow a filter to resolve twice', async function () {
@@ -414,9 +414,9 @@ describe('Schema', function () {
         let callback_executed = false;
         class TestFilter extends Filter {
             async run(filterData) {
-                await filterData.on_completed((err, data, context) => {
+                await filterData.on_completed((err, result, context) => {
                     assert(!err);
-                    assert.equal(data, testData);
+                    assert.equal(result.value, testData);
                     assert.equal(context.is_context, true);
                     callback_executed = true;
                 });
@@ -429,11 +429,11 @@ describe('Schema', function () {
             return testData;
         });
 
-        const data = await schema.run('read', '/foo', {}, testContext);
+        const result = await schema.run('read', '/foo', {}, testContext);
 
         assert.equal(function_executed, true, "Function should execute");
         assert.equal(callback_executed, true, "Callback should execute");
-        assert.equal(data, testData);
+        assert.equal(result.value, testData);
     });
 
     it('will execute completion callbacks in reverse order', async function () {
@@ -670,5 +670,24 @@ describe('Schema', function () {
         await schema.run(readMethod,'/foo');
 
         assert.equal(function_executed, true);
+    });
+
+    it('should return meta values registered by filters', async function () {
+        const schema = new Schema(['read']);
+        const path = '/foo';
+
+        class TestFilter extends Filter {
+            async run(data) {
+                data.result.add_meta("key", "value");
+            }
+        }
+
+        schema.on('read', path, new TestFilter(), () => {
+            return "bar";
+        });
+
+        const result = await schema.run('read', '/foo', {}, {});
+        assert.equal(result.value, "bar", "Value not returned");
+        assert.equal(result.meta.get("key"), "value", "Meta value not registered");
     });
 });

@@ -53,15 +53,19 @@ The data passed into the filter method is a `FilterData` object, and it exposes 
 * method - Method type being called
 * data - Data being passed into the function
 * context - Context used in this call
-* resolve(response) - Call to resolve early (without calling function)
+* resolve(value) - Call to resolve early (without calling function)
 * reject(err) - Call to reject filter (same as throwing an error)
 * on_resolve(func) - Register a callback that runs after the function has successfully executed. Parameters are:
-  * data - Data returned from function
+  * result - Result returned from function
   * context - Context used in function
 
 Resolve callbacks execute in the order they are registered, and will execute even if a filters resolves early. If a callback throws an exception, the following functions will NOT be executed.
 
 Resolve callbacks may return a promise.
+
+### Results
+
+Calling a function will generate a `Result` (unless an error occurs). This result contains the resulting `value` and also a map of `meta` values as registered by the different filters. This allows you to decorate results, if you e.g. want to keep track of a specific action taken by a filter. 
 
 ### Paths
 
