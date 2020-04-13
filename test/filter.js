@@ -1,5 +1,6 @@
 const { Filter } = require('..');
 const { FilterData } = require('../lib/filter');
+const { Result } = require('../lib/schema/result');
 
 const assert = require('assert');
 
@@ -56,6 +57,7 @@ describe('Filter', function () {
     it('should should resolve data', async function () {
         class TestFilter extends Filter {
             async run(filterData) {
+                console.log(filterData);
                 filterData.resolve("test");
             }
         }
@@ -63,12 +65,12 @@ describe('Filter', function () {
         let data = undefined, err = undefined;
         const filterData = new FilterData("", "", {}, {}, {}, (_data) => { data = _data; }, (_err) => {
             err = _err;
-        });
+        }, undefined, new Result());
         const filter = new TestFilter();
 
         await filter.run(filterData);
 
-        assert(data === "test");
+        assert(data.value === "test");
         assert(err === undefined);
     });
 
