@@ -1,5 +1,18 @@
-const { Schema, Filter } = require('..');
-const assert = require('assert');
+import {Schema} from "./Schema";
+
+import * as chai from "chai";
+import chaiAsPromised from "chai-as-promised";
+
+import "mocha";
+import {IFilter, IFilterData} from "./Filter";
+import {IResult} from "./schema/Result";
+
+before(() => {
+    chai.should();
+    chai.use(chaiAsPromised);
+});
+
+const expect = chai.expect;
 
 describe('Schema', function () {
     it('should register and call methods properly', async function () {
@@ -15,16 +28,18 @@ describe('Schema', function () {
             return store;
         });
 
-        schema.on(writeMethod, testUrl, async data => {
+        schema.on(writeMethod, testUrl, async (data: any) => {
             store = data;
         });
 
         await schema.run(readMethod, testUrl).then(result => {
-            assert(result.value && result.value.data === 0);
+            expect(result.value).to.not.be.null;
+            expect(result.value.data).to.equal(0);
         });
         await schema.run(writeMethod, testUrl, { data: 1 });
         await schema.run(readMethod, testUrl).then(result => {
-            assert(result.value && result.value.data === 1);
+            expect(result.value).to.not.be.null;
+            expect(result.value.data).to.equal(1);
         });
     });
 
@@ -33,8 +48,8 @@ describe('Schema', function () {
         const schema = new Schema([readMethod]);
         const id = '1234';
 
-        schema.on(readMethod, '/foo/:test_id/bar', async test_id => {
-            assert.equal(test_id, id);
+        schema.on(readMethod, '/foo/:test_id/bar', async (test_id: string) => {
+            expect(test_id).to.equal(id);
         });
 
         await schema.run(readMethod,'/foo/' + id + '/bar');
@@ -48,32 +63,31 @@ describe('Schema', function () {
         const q2_value = '0246';
 
         let function_executed = false;
-        schema.on(readMethod, '/foo/:test_id/bar?q1=:q1&q2=:q2', async (test_id,q1,q2) => {
-            assert.equal(test_id, id);
-            assert.equal(q1, q1_value);
-            assert.equal(q2, q2_value);
+        schema.on(readMethod, '/foo/:test_id/bar?q1=:q1&q2=:q2', async (test_id: string,q1: string,q2: string) => {
+            expect(test_id).to.equal(id);
+            expect(q1).to.equal(q1_value);
+            expect(q2).to.equal(q2_value);
             function_executed = true;
         });
 
         await schema.run(readMethod,'/foo/' + id + '/bar?q1=' + q1_value + '&q2=' + q2_value);
 
-        assert.equal(function_executed, true);
+        expect(function_executed).to.be.true;
     });
-
 
     it('should allow most function signatures', async function () {
         const schema = new Schema(['read']);
 
-        await schema.on('read', '/foo/:a', function (a) {});
-        await schema.on('read', '/foo/:a', function func(a) {});
-        await schema.on('read', '/foo/:a/:b', async function func(a,b) {});
-        await schema.on('read', '/foo/:a', (a) => {});
-        await schema.on('read', '/foo/:a/:b', async (a,b) => {});
+        await schema.on('read', '/foo/:a', function (a: string) {});
+        await schema.on('read', '/foo/:a', function func(a: string) {});
+        await schema.on('read', '/foo/:a/:b', async function func(a: string,b: string) {});
+        await schema.on('read', '/foo/:a', (a: string) => {});
+        await schema.on('read', '/foo/:a/:b', async (a: string,b: string) => {});
     });
 
     it('should not allow unknown arguments', async function () {
         const schema = new Schema(['read']);
-        assert.throws(() => { schema.on('read', '/foo', function func(a) {}); }, Error);
+        expect(() => { schema.on('read', '/foo', function func(a: string) {}); }).to.throw("Unknown function parameter");
     });
 
     it('should allow extra arguments', async function () {
@@ -81,19 +95,19 @@ describe('Schema', function () {
         let origValue = 'bar';
         let valueName = 'value';
         let paramValue = '1234';
-        const schema = new Schema([method], { extra: [valueName] });
+        const schema = new Schema([method], { extraArguments: [valueName], errorFilter: (err: Error) => true });
 
         let matched = false, called = false;
-        await schema.on(method, '/foo/:a', function (value, a) {
-            if (a !== paramValue) throw new Error("Parameter not matching");
+        await schema.on(method, '/foo/:a', function (value: string, a: string) {
+            expect(a).to.equal(paramValue);
             if (value === origValue) matched = true;
             called = true;
         });
 
-        await schema.run(method, '/foo/1234', {}, {}, new Map([[valueName, origValue]]));
+        await schema.run(method, '/foo/1234', {}, {}, [[valueName, origValue]]);
 
-        assert.equal(called, true);
-        assert.equal(matched, true);
+        expect(called).to.be.true;
+        expect(matched).to.be.true;
     });
 
     it('should fail calling if a node argument value cannot be found', async function () {
@@ -101,26 +115,22 @@ describe('Schema', function () {
         let origValue = 'bar';
         let valueName = 'value';
         let paramValue = '1234';
-        const schema = new Schema([method], { extra: [valueName] });
+        const schema = new Schema([method], { extraArguments: [valueName], errorFilter: (err: Error) => true });
 
         let called = false;
-        await schema.on(method, '/foo/:a', function (value, a) {
+        await schema.on(method, '/foo/:a', function (value: string, a: string) {
             called = true;
         });
 
-        try {
-            await schema.run(method, '/foo/1234');
-        } catch (err) {
-            assert.equal(err.message, "Argument value not found");
-        }
+        await schema.run(method, '/foo/1234').should.be.rejectedWith(Error, "Argument value not found");
 
-        assert.equal(called, false);
+        expect(called).to.be.false;
     });
 
     it('should not allow registering urls on non-existing methods', async function () {
         const schema = new Schema(['a']);
 
-        assert.throws(() => { schema.on('b', '/test') }, Error);
+        expect(() => { schema.on('b', '/test') }).to.throw("Unsupported method");
     });
 
     it('can access context variable', async function () {
@@ -128,10 +138,10 @@ describe('Schema', function () {
         const value = '1234';
 
         schema.on('read', '/foo', function foo() {
-            assert.equal(this.value, value);
+            expect(this.value).to.equal(value);
         });
-        schema.on('read', '/foo2', (context) => {
-            assert.equal(context.value, value);
+        schema.on('read', '/foo2', (context: any) => {
+            expect(context.value).to.equal(value);
         });
 
         await schema.run('read', '/foo', {}, { value: value });
@@ -143,7 +153,7 @@ describe('Schema', function () {
         const value = '1234';
 
         schema.on('read', '/foo', () => {
-            assert.notEqual(this.value, value);
+            expect(this.value).to.not.equal(value);
         });
 
         await schema.run('read', '/foo', {}, { value: value });
@@ -154,76 +164,73 @@ describe('Schema', function () {
         const path = '/foo';
 
         let filter_executed = false;
-        class TestFilter extends Filter {
-            async run(data) {
-                assert.equal(data.path, path);
+        class TestFilter extends IFilter {
+            async run(data: IFilterData) {
+                expect(data.path).to.equal(path);
                 filter_executed = true;
             }
         }
 
         let function_executed = false;
         schema.on('read', path, new TestFilter(), () => {
-            assert.equal(true, filter_executed, "Filter has not executed");
+            expect(filter_executed).to.be.true;
             function_executed = true;
         });
 
         await schema.run('read', '/foo', {}, {});
-        assert.equal(true, function_executed, "Function has not executed");
+        expect(function_executed).to.be.true;
     });
 
     it('runs filter before calling the function', async function () {
         const schema = new Schema(['read']);
 
         let filter_executed = false;
-        class TestFilter extends Filter {
-            async run() {
+        class TestFilter extends IFilter {
+            async run(data: IFilterData) {
                 filter_executed = true;
             }
         }
 
         let function_executed = false;
         schema.on('read', '/foo', new TestFilter(), () => {
-            assert.equal(true, filter_executed, "Filter has not executed");
+            expect(filter_executed).to.be.true;
             function_executed = true;
         });
 
         await schema.run('read', '/foo', {}, {});
-        assert.equal(true, function_executed, "Function has not executed");
+        expect(function_executed).to.be.true;
     });
 
     it('fails to register method if filter is not inheriting from Filter', async function () {
         const schema = new Schema(['read']);
 
-        assert.throws(() => { schema.on('read', '/foo', () => {}, () => {}); }, Error);
+        expect(() => { schema.on('read', '/foo', () => {}, () => {}); }).to.throw("Not a valid filter");
     });
 
     it('does not run function if filter rejects', async function () {
         const schema = new Schema(['read']);
 
-        class TestFilter extends Filter {
-            async run() {
+        class TestFilter extends IFilter {
+            async run(data: IFilterData) {
                 throw new Error("Rejected");
             }
         }
 
         let function_executed = false;
         schema.on('read', '/foo', new TestFilter(), () => {
-            assert.equal(true, filter_executed, "Filter has not executed");
             function_executed = true;
         });
 
-        let err = undefined;
-        await schema.run('read', '/foo', {}, {}).catch(_err => {
-            err = _err;
-        });
-        assert.equal(err.message, "Rejected");
+        await schema.run('read', '/foo', {}, {}).should.be.rejectedWith(Error, "Rejected");
+
+        expect(function_executed).to.be.false;
     });
 
     it('runs second function if first is rejected', async function () {
         const schema = new Schema(['read']);
 
-        class TestFilter extends Filter {
-            async run() {
+        class TestFilter extends IFilter {
+            async run(data: IFilterData) {
                 throw new Error("Rejected");
             }
         }
@@ -238,17 +245,18 @@ describe('Schema', function () {
 
         await schema.run('read', '/foo', {}, {});
 
-        assert.equal(function1_executed, false, "First function should not execute");
-        assert.equal(function2_executed, true, "Second function should execute");
+        expect(function1_executed).to.be.false;
+        expect(function2_executed).to.be.true;
     });
 
     it('won\'t run the second function if first is rejected with a non-filtered error', async function () {
         const schema = new Schema(['read'], {
-            filter_error: (err) => false
+            extraArguments: [],
+            errorFilter: (err) => false
         });
 
-        class TestFilter extends Filter {
-            async run() {
+        class TestFilter extends IFilter {
+            async run(data: IFilterData) {
                 throw new Error("Rejected");
             }
         }
@@ -261,26 +269,18 @@ describe('Schema', function () {
             function2_executed = true;
         });
 
-        let err = undefined;
-        try {
-            await schema.run('read', '/foo', {}, {});
-        } catch (_err) {
-            err = _err;
-        }
+        await schema.run('read', '/foo', {}, {}).should.be.rejectedWith(Error, "Rejected");
 
-        assert(!!err, "Method should throw");
-        assert.equal(err.message, "Rejected");
-
-        assert.equal(function1_executed, false, "First function should not execute");
-        assert.equal(function2_executed, false, "Second function should not execute");
+        expect(function1_executed).to.be.false;
+        expect(function2_executed).to.be.false;
     });
 
     it('can be resolved early by a filter', async function () {
         const schema = new Schema(['read']);
 
-        class TestFilter extends Filter {
-            async run(filterData) {
-                await filterData.resolve("test");
+        class TestFilter extends IFilter {
+            async run(data: IFilterData) {
+                await data.resolve("test");
             }
         }
 
@@ -291,8 +291,8 @@ describe('Schema', function () {
 
         const result = await schema.run('read', '/foo', {}, {});
 
-        assert.equal(function_executed, false, "Function should not execute");
-        assert.equal(result.value, "test");
+        expect(function_executed).to.be.false;
+        expect(result.value).to.equal("test");
     });
 
     it('won\'t run the second function if the first one succeeds', async function () {
@@ -309,7 +309,7 @@ describe('Schema', function () {
             throw new Error("Should not execute");
         });
 
-        assert.equal((await schema.run(method, path)).value, testData);
+        expect((await schema.run(method, path)).value).to.equal(testData);
     });
 
     it('won\'t run filters for the second function if the first one succeeds', async function () {
@@ -319,7 +319,7 @@ describe('Schema', function () {
 
         const schema = new Schema([method]);
 
-        class TestFilter extends Filter {
+        class TestFilter extends IFilter {
             async run() {
                 throw new Error("Should not execute");
             }
@@ -332,7 +332,7 @@ describe('Schema', function () {
             throw new Error("Should not execute");
         });
 
-        assert.equal((await schema.run(method, path)).value, testData);
+        expect((await schema.run(method, path)).value).to.equal(testData);
     });
 
     it('won\'t allow a filter to resolve twice', async function () {
@@ -342,8 +342,8 @@ describe('Schema', function () {
 
         const schema = new Schema([method]);
 
-        class TestFilter extends Filter {
-            async run(data) {
+        class TestFilter extends IFilter {
+            async run(data: IFilterData) {
                 await data.resolve(testData);
                 await data.resolve(testData);
             }
@@ -354,13 +354,7 @@ describe('Schema', function () {
         });
 
         let resolve_err = undefined;
-        try {
-            await schema.run(method, path);
-        } catch (err) {
-            resolve_err = err;
-        }
-
-        assert.equal(resolve_err.message, "on_resolve already called");
+        await schema.run(method, path).should.be.rejectedWith(Error, "on_resolve already called");
     });
 
     it('won\'t run second filter if first one fails', async function () {
@@ -372,15 +366,15 @@ describe('Schema', function () {
 
         let filter1 = false, filter2 = false, func = false;
 
-        class TestFilter1 extends Filter {
-            async run(data) {
+        class TestFilter1 extends IFilter {
+            async run(data: IFilterData) {
                 filter1 = true;
                 throw new Error("This should happen");
             }
         }
 
-        class TestFilter2 extends Filter {
-            async run(data) {
+        class TestFilter2 extends IFilter {
+            async run(data: IFilterData) {
                 filter2 = true;
                 throw new Error("This should not happen");
             }
@@ -391,17 +385,11 @@ describe('Schema', function () {
             return testData;
         });
 
-        let resolve_err = undefined;
-        try {
-            await schema.run(method, path);
-        } catch (err) {
-            resolve_err = err;
-        }
+        await schema.run(method, path).should.be.rejectedWith(Error, "This should happen");
 
-        assert.equal(resolve_err.message, "This should happen");
-        assert.equal(filter1, true);
-        assert.equal(filter2, false);
-        assert.equal(func,false);
+        expect(filter1).to.be.true;
+        expect(filter2).to.be.false;
+        expect(func).to.be.false;
     });
 
     it('can run resolve callbacks registered by a filter', async function () {
@@ -412,12 +400,12 @@ describe('Schema', function () {
         };
 
         let callback_executed = false;
-        class TestFilter extends Filter {
-            async run(filterData) {
-                await filterData.on_completed((err, result, context) => {
-                    assert(!err);
-                    assert.equal(result.value, testData);
-                    assert.equal(context.is_context, true);
+        class TestFilter extends IFilter {
+            async run(filterData: IFilterData) {
+                await filterData.onCompleted(async (err: Error | null, result: IResult | null, context: any) => {
+                    expect(!err).to.be.true;
+                    expect(result.value).to.equal(testData);
+                    expect(context.is_context).to.be.true;
                     callback_executed = true;
                 });
             }
@@ -431,9 +419,9 @@ describe('Schema', function () {
 
         const result = await schema.run('read', '/foo', {}, testContext);
 
-        assert.equal(function_executed, true, "Function should execute");
-        assert.equal(callback_executed, true, "Callback should execute");
-        assert.equal(result.value, testData);
+        expect(function_executed).to.be.true;
+        expect(callback_executed).to.be.true;
+        expect(result.value).to.equal(testData);
     });
 
     it('will execute completion callbacks in reverse order', async function () {
@@ -446,18 +434,18 @@ describe('Schema', function () {
         let count = 0;
         let last = 0;
 
-        class TestFilter1 extends Filter {
-            async run(filterData) {
-                await filterData.on_completed(() => {
+        class TestFilter1 extends IFilter {
+            async run(filterData: IFilterData) {
+                await filterData.onCompleted(async (err: Error | null, result: IResult | null, context: any) => {
                     count++;
                     last = 1;
                 });
             }
         }
 
-        class TestFilter2 extends Filter {
-            async run(filterData) {
-                await filterData.on_completed(() => {
+        class TestFilter2 extends IFilter {
+            async run(filterData: IFilterData) {
+                await filterData.onCompleted(async (err: Error | null, result: IResult | null, context: any) => {
                     count++;
                     last = 2;
                 });
@@ -468,8 +456,8 @@ describe('Schema', function () {
 
         await schema.run('read', '/foo', {}, testContext);
 
-        assert.equal(count, 2);
-        assert.equal(last, 1);
+        expect(count).to.equal(2);
+        expect(last).to.equal(1);
     });
 
     it('can retrieve arguments for node', async function () {
@@ -480,11 +468,11 @@ describe('Schema', function () {
 
         const capture = new Map();
         const nodeData = schema.get(readMethod, '/test/1234', capture);
-        assert(!!nodeData);
-        assert.equal(nodeData.entries.length, 1);
+        expect(!!nodeData).to.be.true;
+        expect(nodeData.entries.length).to.equal(1);
 
-        assert(capture.has('value'));
-        assert.equal(capture.get('value'), '1234');
+        expect(capture.has('value')).to.be.true;
+        expect(capture.get('value')).to.equal('1234');
     });
 
     it('should properly handle filters scheduling execution', async function () {
@@ -492,14 +480,11 @@ describe('Schema', function () {
         const readMethod = 'read';
         const schema = new Schema([readMethod]);
 
-        class QueueFilter extends Filter {
-            constructor() {
-                super();
-                this._queue = [];
-            }
+        class QueueFilter extends IFilter {
+            _queue: any[] = [];
 
-            async run(data) {
-                return new Promise(resolve => {
+            async run(data: IFilterData) {
+                return new Promise<void>(resolve => {
                     this._queue.push({ data, resolve });
                     if (this._queue.length > 1) {
                         return;
@@ -514,7 +499,7 @@ describe('Schema', function () {
                 }
 
                 const entry = this._queue[0];
-                entry.data.on_completed(() => {
+                entry.data.onCompleted(async (err: Error | null, result: IResult | null, context: any) => {
                     this._queue.shift();
                     this.pop();
                 });
@@ -523,7 +508,7 @@ describe('Schema', function () {
             }
         }
 
-        const sleep = async (timeout) => new Promise(resolve => setTimeout(resolve, timeout));
+        const sleep = async (timeout: number) => new Promise<void>(resolve => setTimeout(resolve, timeout));
 
         let function_calls = 0;
         schema.on(readMethod, testUrl, new QueueFilter(), async () => {
@@ -537,7 +522,7 @@ describe('Schema', function () {
             schema.run(readMethod, testUrl)
         ]);
 
-        assert.equal(function_calls, 3);
+        expect(function_calls).to.equal(3);
     });
 
     it('should properly handle errors while filters scheduling execution', async function () {
@@ -545,14 +530,11 @@ describe('Schema', function () {
         const readMethod = 'read';
         const schema = new Schema([readMethod]);
 
-        class QueueFilter extends Filter {
-            constructor() {
-                super();
-                this._queue = [];
-            }
+        class QueueFilter extends IFilter {
+            _queue: any[] = [];
 
-            async run(data) {
-                return new Promise(resolve => {
+            async run(data: IFilterData) {
+                return new Promise<void>(resolve => {
                     this._queue.push({ data, resolve });
                     if (this._queue.length > 1) {
                         return;
@@ -567,7 +549,7 @@ describe('Schema', function () {
                 }
 
                 const entry = this._queue[0];
-                entry.data.on_completed(() => {
+                entry.data.onCompleted(async (err: Error | null, result: IResult | null, context: any) => {
                     this._queue.shift();
                     this.pop();
                 });
@@ -577,8 +559,8 @@ describe('Schema', function () {
         }
 
         let function_calls = 0, function_failures = 0;
-        schema.on(readMethod, "/test?q=:a", new QueueFilter(), async (q) => {
-            assert.equal(q, "1");
+        schema.on(readMethod, "/test?q=:a", new QueueFilter(), async (q: string) => {
+            expect(q).to.equal("1");
             function_calls++;
         });
 
@@ -588,8 +570,8 @@ describe('Schema', function () {
             schema.run(readMethod, "/test?q=1")
         ]);
 
-        assert.equal(function_calls, 1);
-        assert.equal(function_failures, 2);
+        expect(function_calls).to.equal(1);
+        expect(function_failures).to.equal(2);
     });
 
 
@@ -598,22 +580,23 @@ describe('Schema', function () {
         const readMethod = 'read';
         const schema = new Schema([readMethod]);
 
-        class TestFilter extends Filter {
+        class TestFilter extends IFilter {
+            async run(data: IFilterData) {}
         }
 
         schema.on(readMethod, testUrl, new TestFilter(), async () => {});
 
         const nodeData = schema.get(readMethod, testUrl);
-        assert(!!nodeData);
-        assert.equal(nodeData.entries.length, 1);
+        expect(!!nodeData).to.be.true;
+        expect(nodeData.entries.length).to.equal(1);
 
         const entry = nodeData.entries[0];
-        assert(!!entry);
-        assert.equal(entry.filters.length, 1);
+        expect(!!entry).to.be.true;
+        expect(entry.filters.length).to.equal(1);
 
         const filter = entry.filters[0];
-        assert(!!filter);
-        assert(filter instanceof TestFilter);
+        expect(!!filter).to.be.true;
+        expect(filter instanceof TestFilter).to.be.true;
     });
 
     it('should decode URI components properly for arguments', async function () {
@@ -623,22 +606,22 @@ describe('Schema', function () {
         const testValue2 = "ABC/DEF";
 
         let function_executed1 = false;
-        schema.on(readMethod, '/foo/:value', async (value) => {
-            assert.equal(value, testValue1);
+        schema.on(readMethod, '/foo/:value', async (value: string) => {
+            expect(value).to.equal(testValue1);
             function_executed1 = true;
         });
 
         let function_executed2 = false;
-        schema.on(readMethod, '/bar/:value', async (value) => {
-            assert.equal(value, testValue2);
+        schema.on(readMethod, '/bar/:value', async (value: string) => {
+            expect(value).to.equal(testValue2);
             function_executed2 = true;
         });
 
         await schema.run(readMethod,'/foo/' + encodeURIComponent(testValue1));
         await schema.run(readMethod,'/bar/' + encodeURIComponent(testValue2));
 
-        assert.equal(function_executed1, true);
-        assert.equal(function_executed2, true);
+        expect(function_executed1).to.be.true;
+        expect(function_executed2).to.be.true;
     });
 
     it('should handle optional argument with value', async function () {
@@ -647,14 +630,14 @@ describe('Schema', function () {
         const q_value = '5678';
 
         let function_executed = false;
-        schema.on(readMethod, '/foo?q=:q', async (q) => {
-            assert.equal(q, q_value);
+        schema.on(readMethod, '/foo?q=:q', async (q: string) => {
+            expect(q).to.equal(q_value);
             function_executed = true;
         });
 
         await schema.run(readMethod,'/foo?q=' + q_value);
 
-        assert.equal(function_executed, true);
+        expect(function_executed).to.be.true;
     });
 
     it('should handle optional argument without value', async function () {
@@ -662,23 +645,23 @@ describe('Schema', function () {
         const schema = new Schema([readMethod]);
 
         let function_executed = false;
-        schema.on(readMethod, '/foo?q=:q', async (q) => {
-            assert.equal(q, undefined);
+        schema.on(readMethod, '/foo?q=:q', async (q: string) => {
+            expect(q).to.be.undefined;
             function_executed = true;
         });
 
         await schema.run(readMethod,'/foo');
 
-        assert.equal(function_executed, true);
+        expect(function_executed).to.be.true;
     });
 
     it('should return meta values registered by filters', async function () {
         const schema = new Schema(['read']);
         const path = '/foo';
 
-        class TestFilter extends Filter {
-            async run(data) {
-                data.result.add_meta("key", "value");
+        class TestFilter extends IFilter {
+            async run(data: IFilterData) {
+                data.result.addMeta("key", "value");
             }
         }
 
@@ -687,7 +670,7 @@ describe('Schema', function () {
         });
 
         const result = await schema.run('read', '/foo', {}, {});
-        assert.equal(result.value, "bar", "Value not returned");
-        assert.equal(result.meta.get("key"), "value", "Meta value not registered");
+        expect(result.value).to.equal("bar");
+        expect(result.meta.get("key")).to.equal("value");
     });
 });

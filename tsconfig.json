@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "declaration": true,
+    "declarationDir": "./dist",
+    "esModuleInterop": true,
+    "module": "commonjs",
+    "noImplicitAny": true,
+    "downlevelIteration": true,
+    "lib": ["es2017", "es2015", "es7", "es6", "dom"],
+    "outDir": "./dist",
+    "target": "es5",
+    "moduleResolution": "node"
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules", "dist",
+    "src/**/*.spec.ts"
+  ]
+}

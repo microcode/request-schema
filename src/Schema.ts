@@ -1,40 +1,40 @@
-const { Entry } = require('./schema/entry');
-const { NodeData } = require('./schema/data');
-const { Filter, FilterData } = require('./filter');
-const { Result } = require('./schema/result');
+import {IPathNode, PathTree} from '@microcode/pathtree';
+import {NodeData, Arg} from './schema/NodeData';
+import {Entry} from "./schema/Entry";
+import {CompletionCallbackFn, FilterData, IFilter} from './Filter';
 
-const { PathTree } = require('@microcode/pathtree');
-const isFunction = require('lodash.isfunction');
+import isFunction from 'lodash.isfunction';
+import {PathCapture} from "@microcode/pathtree/dist/PathTree";
+import {IResult, Result} from "./schema/Result";
 
-const log = require('@microcode/debug-ng')('request-schema:schema');
+import Debug from "debug";
+const debug = Debug('request-schema:schema');
 
-function getWildcardArguments(node) {
-    const args = [];
-    for (; node !== null; node = node.parent_node) {
-        if (node.is_wildcard) {
-            args.unshift(node.key);
-        }
-    }
-    return args;
+type ErrorFilterFn = (error: Error) => boolean;
+
+export interface SchemaOptions {
+    extraArguments: string[];
+    errorFilter: ErrorFilterFn;
 }
 
-class Schema {
-    constructor(methods, options) {
-        this._methods = new Map(methods.map(method => [method, new PathTree()]));
-        this._options = Object.assign({
-            extra: [],
-            filter_error: (err) => true
-        }, options || {});
+export class Schema {
+    _methods: Map<string,PathTree>;
+    _options: SchemaOptions;
 
-        Object.seal(this);
+    constructor(methods: string[], options: SchemaOptions | null = null) {
+        this._methods = new Map(methods.map(method => [method, new PathTree]));
+        this._options = Object.assign({
+            extraArguments: [],
+            errorFilter: (err: Error) => true
+        }, options || {});
     }
 
-    on(method, path, ...args) {
-        log.debug('on("%s", "%s", ...)', method, path);
+    on(method: string, path: string, ...args: any[]): void {
+        debug('on("%s", "%s", ...)', method, path);
 
         const m = this._methods.get(method);
         if (!m) {
-            log.error('Method "%s" is not supported', method);
+            debug('Method "%s" is not supported', method);
             throw new Error("Unsupported method");
         }
 
@@ -48,20 +48,20 @@ class Schema {
         const func = args.slice(-1)[0];
 
         for (let filter of filters) {
-            if (!(filter instanceof Filter)) {
-                log.error('Invalid filter supplied for "%s" ("%s")', path, method);
+            if (!(filter instanceof IFilter)) {
+                debug('Invalid filter supplied for "%s" ("%s")', path, method);
                 throw new Error("Not a valid filter");
             }
         }
 
         if (!isFunction(func)) {
-            log.error('Path "%s" ("%s") is not a valid function', path, method);
+            debug('Path "%s" ("%s") is not a valid function', path, method);
             throw new Error("Not a function");
         }
 
         let data = node.data;
         if (!data) {
-            const args = getWildcardArguments(node);
+            const args = Schema.getWildcardArguments(node);
             node.data = data = new NodeData(args);
         }
 
@@ -71,34 +71,34 @@ class Schema {
             while (m = re.exec(s)) yield m[1];
         })(components[2]));
 
-        log.debug('Adding entry to path "%s" ("%s")', path, method);
+        debug('Adding entry to path "%s" ("%s")', path, method);
         try {
-            data.add_entry(new Entry(filters, func), queryArgs, ['data', 'context'].concat(this._options.extra));
+            data.addEntry(new Entry(filters, func), queryArgs, ['data', 'context'].concat(this._options.extraArguments));
         } catch (err) {
-            log.error('Failed to add entry to path "%s" ("%s")', path, method);
+            debug('Failed to add entry to path "%s" ("%s")', path, method);
             throw err;
         }
     }
 
-    async run(method, path, data, context, extra) {
-        log.debug('run("%s", "%s", ...)', method, path);
+    async run(method: string, path: string, data: any | null = null, context: any | null = null, extra: [string, string][] | null = null) : Promise<any> {
+        debug('run("%s", "%s", ...)', method, path);
 
         const m = this._methods.get(method);
         if (!m) {
-            log.error('Method "%s" is not supported', method);
+            debug('Method "%s" is not supported', method);
             throw new Error("Unsupported method");
         }
 
         const components = /^(.*?)(?:\?(.*))?$/.exec(path);
         if (!components) {
-            log.error('Could not parse path "%s"', path);
+            debug('Could not parse path "%s"', path);
             throw new Error("Could not parse path");
         }
 
-        const capture = new Map(extra);
+        const capture = new Map<string,string>(extra);
         const node = m.find(components[1], capture);
         if (!node) {
-            log.error('Could not find function for path "%s" ("%s")', path, method);
+            debug('Could not find function for path "%s" ("%s")', path, method);
             throw new Error("Could not find function");
         }
 
@@ -107,14 +107,15 @@ class Schema {
             return;
         }
 
-        let callbacks = [];
-        const register_callback = function (cb) {
+        let callbacks: CompletionCallbackFn[] = [];
+        const register_callback = function (cb: CompletionCallbackFn): Promise<void> {
             callbacks.push(cb);
+            return Promise.resolve();
         };
 
         let is_resolved = false, is_rejected = false;
         let resolve_result = undefined, reject_error = undefined;
-        const on_resolve = async function (_result) {
+        const on_resolve = async function (_result: IResult): Promise<void> {
             if (is_resolved) {
                 throw new Error("on_resolve already called");
             }
@@ -130,7 +131,7 @@ class Schema {
                 await cb(null, _result, context);
             }
         };
-        const on_reject = async function (_err) {
+        const on_reject = async function (_err: Error): Promise<void> {
             if (is_rejected) {
                 throw new Error("on_reject already called");
             }
@@ -172,7 +173,7 @@ class Schema {
             }
 
             if (is_rejected) {
-                if (this._options.filter_error(reject_error)) {
+                if (this._options.errorFilter(reject_error)) {
                     continue;
                 } else {
                     break;
@@ -180,16 +181,12 @@ class Schema {
             }
 
             try {
-                let queryArgs = undefined;
+                let queryArgs: Map<string,string> = undefined;
                 if (components[2]) {
-                    queryArgs = new Map((function* (s) {
-                        const re = /([^=]+)=(?:(.*?)(?:&|$))/gm;
-                        let m;
-                        while (m = re.exec(s)) yield [m[1], m[2]];
-                    })(components[2]));
+                    queryArgs = new Map(Schema.filterQueryArgs(components[2]));
                 }
 
-                const args = entry.args.map(arg => {
+                const args = entry.args.map((arg: Arg) => {
                     switch (arg.name) {
                         case 'data': return data;
                         case 'context': return context;
@@ -203,7 +200,7 @@ class Schema {
                             }
 
                             if (!arg.optional) {
-                                log.warn('Path "%s" ("%s") is missing argument value for "%s"', path, method, arg.name);
+                                debug('Path "%s" ("%s") is missing argument value for "%s"', path, method, arg.name);
                                 throw new Error("Argument value not found");
                             }
 
@@ -214,12 +211,12 @@ class Schema {
 
 
                 await on_resolve(
-                        result.with_value(await entry.func.apply(context, args))
+                    result.withValue(await entry.func.apply(context, args))
                 );
                 break;
             } catch (err) {
                 await on_reject(err);
-                if (!this._options.filter_error(reject_error)) {
+                if (!this._options.errorFilter(reject_error)) {
                     break;
                 }
             }
@@ -237,16 +234,16 @@ class Schema {
         }
     }
 
-    get(method, path, capture) {
+    get(method: string, path: string, capture: PathCapture | null = null) {
         const m = this._methods.get(method);
         if (!m) {
-            log.error('Method "%s" is not supported', method);
+            debug('Method "%s" is not supported', method);
             return undefined;
         }
 
         const node = m.find(path, capture);
         if (!node) {
-            log.error('Could not find function for path "%s" ("%s")', path, method);
+            debug('Could not find function for path "%s" ("%s")', path, method);
             return undefined;
         }
 
@@ -257,6 +254,20 @@ class Schema {
 
         return nodeData;
     }
-}
 
-exports.Schema = Schema;
+    private static getWildcardArguments(node: IPathNode): string[] {
+        const args: string[] = [];
+        for (; node !== null; node = node.parent) {
+            if (node.isWildcard) {
+                args.unshift(node.key);
+            }
+        }
+        return args;
+    }
+
+    private static *filterQueryArgs(s: string): Generator<[string, string]> {
+        const re = /([^=]+)=(?:(.*?)(?:&|$))/gm;
+        let m;
+        while (m = re.exec(s)) yield [m[1], m[2]];
+    }
+}
