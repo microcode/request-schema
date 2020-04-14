@@ -1,7 +1,9 @@
 import {IPathNode, PathTree} from '@microcode/pathtree';
-import {NodeData, Arg} from './schema/NodeData';
+import {NodeData} from './schema/NodeData';
 import {Entry} from "./schema/Entry";
-import {CompletionCallbackFn, FilterData, IFilter} from './Filter';
+import {Arg} from "./schema/Arg";
+import {CompletionCallbackFn, FilterData} from './FilterData';
+import {IFilter} from './Filter';
 
 import isFunction from 'lodash.isfunction';
 import {PathCapture} from "@microcode/pathtree/dist/PathTree";
@@ -22,7 +24,7 @@ export class Schema {
     _options: SchemaOptions;
 
     constructor(methods: string[], options: SchemaOptions | null = null) {
-        this._methods = new Map(methods.map(method => [method, new PathTree]));
+        this._methods = new Map(methods.map(method => [method, new PathTree()]));
         this._options = Object.assign({
             extraArguments: [],
             errorFilter: (err: Error) => true
@@ -32,8 +34,8 @@ export class Schema {
     on(method: string, path: string, ...args: any[]): void {
         debug('on("%s", "%s", ...)', method, path);
 
-        const m = this._methods.get(method);
-        if (!m) {
+        const tree = this._methods.get(method);
+        if (!tree) {
             debug('Method "%s" is not supported', method);
             throw new Error("Unsupported method");
         }
@@ -42,12 +44,12 @@ export class Schema {
         if (!components) {
             throw new Error("Could not parse path");
         }
-        const node = m.insert(components[1]);
+        const node = tree.insert(components[1]);
 
         const filters = args.length > 1 ? args.slice(0, -1) : [];
         const func = args.slice(-1)[0];
 
-        for (let filter of filters) {
+        for (const filter of filters) {
             if (!(filter instanceof IFilter)) {
                 debug('Invalid filter supplied for "%s" ("%s")', path, method);
                 throw new Error("Not a valid filter");
@@ -61,14 +63,14 @@ export class Schema {
 
         let data = node.data;
         if (!data) {
-            const args = Schema.getWildcardArguments(node);
-            node.data = data = new NodeData(args);
+            const wcArgs = Schema.getWildcardArguments(node);
+            node.data = data = new NodeData(wcArgs);
         }
 
         const queryArgs = Array.from((function* (s) {
             const re = /([^=]+)=(?:\:.*?(?:&|$))/gm;
             let m;
-            while (m = re.exec(s)) yield m[1];
+            while (m = re.exec(s)) yield m[1]; // tslint:disable-line:no-conditional-assignment
         })(components[2]));
 
         debug('Adding entry to path "%s" ("%s")', path, method);
@@ -108,58 +110,62 @@ export class Schema {
         }
 
         let callbacks: CompletionCallbackFn[] = [];
-        const register_callback = function (cb: CompletionCallbackFn): Promise<void> {
+        const registerCallback = (cb: CompletionCallbackFn): Promise<void> => {
             callbacks.push(cb);
             return Promise.resolve();
         };
 
-        let is_resolved = false, is_rejected = false;
-        let resolve_result = undefined, reject_error = undefined;
-        const on_resolve = async function (_result: IResult): Promise<void> {
-            if (is_resolved) {
+        let isResolved = false;
+        let isRejected = false;
+
+        let resolveResult;
+        let rejectError;
+
+        const onResolve = async (_result: IResult): Promise<void> => {
+            if (isResolved) {
                 throw new Error("on_resolve already called");
             }
 
-            is_rejected = false;
-            is_resolved = true;
-            resolve_result = _result;
+            isRejected = false;
+            isResolved = true;
+            resolveResult = _result;
 
             const cbs = callbacks.reverse();
             callbacks = [];
 
-            for (let cb of cbs) {
+            for (const cb of cbs) {
                 await cb(null, _result, context);
             }
         };
-        const on_reject = async function (_err: Error): Promise<void> {
-            if (is_rejected) {
-                throw new Error("on_reject already called");
+        const onReject = async (_err: Error): Promise<void> => {
+            if (isRejected) {
+                throw new Error("onReject() already called");
             }
 
-            is_resolved = false;
-            is_rejected = true;
-            reject_error = _err;
+            isResolved = false;
+            isRejected = true;
+            rejectError = _err;
 
             const cbs = callbacks.reverse();
             callbacks = [];
 
-            for (let cb of cbs) {
+            for (const cb of cbs) {
                 await cb(_err, undefined, context);
             }
         };
 
-        for (let entry of nodeData.entries)  {
+        for (const entry of nodeData.entries)  {
             callbacks = [];
-            is_rejected = false;
+            isRejected = false;
             const result = new Result();
 
             if (entry.filters) {
-                for (let filter of entry.filters) {
-                    if (is_resolved || is_rejected) {
+                for (const filter of entry.filters) {
+                    if (isResolved || isRejected) {
                         break;
                     }
 
-                    const filterData = new FilterData(method, path, data, context, capture, on_resolve, on_reject, register_callback, result);
+                    const filterData = new FilterData(method, path, data, context, capture, onResolve, onReject, registerCallback, result);
                     try {
                         await filter.run(filterData);
                     } catch (err) {
@@ -168,12 +174,12 @@ export class Schema {
                 }
             }
 
-            if (is_resolved) {
+            if (isResolved) {
                 break;
             }
 
-            if (is_rejected) {
-                if (this._options.errorFilter(reject_error)) {
+            if (isRejected) {
+                if (this._options.errorFilter(rejectError)) {
                     continue;
                 } else {
                     break;
@@ -181,7 +187,7 @@ export class Schema {
             }
 
             try {
-                let queryArgs: Map<string,string> = undefined;
+                let queryArgs: Map<string,string>;
                 if (components[2]) {
                     queryArgs = new Map(Schema.filterQueryArgs(components[2]));
                 }
@@ -210,27 +216,26 @@ export class Schema {
                 });
 
 
-                await on_resolve(
+                await onResolve(
                     result.withValue(await entry.func.apply(context, args))
                 );
                 break;
             } catch (err) {
-                await on_reject(err);
-                if (!this._options.errorFilter(reject_error)) {
+                await onReject(err);
+                if (!this._options.errorFilter(rejectError)) {
                     break;
                 }
             }
         }
 
-        if (!is_resolved && !reject_error) {
-            reject_error = new Error("No result");
+        if (!isResolved && !rejectError) {
+            rejectError = new Error("No result");
         }
 
-        if (is_resolved) {
-
-            return resolve_result;
+        if (isResolved) {
+            return resolveResult;
         } else {
-            throw reject_error;
+            throw rejectError;
         }
     }
 
@@ -268,6 +273,6 @@ export class Schema {
     private static *filterQueryArgs(s: string): Generator<[string, string]> {
         const re = /([^=]+)=(?:(.*?)(?:&|$))/gm;
         let m;
-        while (m = re.exec(s)) yield [m[1], m[2]];
+        while (m = re.exec(s)) yield [m[1], m[2]]; // tslint:disable-line:no-conditional-assignment
     }
 }

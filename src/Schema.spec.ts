@@ -4,7 +4,8 @@ import * as chai from "chai";
 import chaiAsPromised from "chai-as-promised";
 
 import "mocha";
-import {IFilter, IFilterData} from "./Filter";
+import {IFilterData} from "./FilterData";
+import {IFilter} from "./Filter";
 import {IResult} from "./schema/Result";
 
 before(() => {

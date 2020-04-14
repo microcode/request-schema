@@ -1,4 +1,5 @@
-import {IFilter, FilterData, CompletionCallbackFn} from "./Filter";
+import {FilterData, CompletionCallbackFn} from "./FilterData";
+import {IFilter} from "./Filter";
 import {IResult, Result} from "./schema/Result";
 
 import * as chai from "chai";

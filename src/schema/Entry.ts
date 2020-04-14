@@ -1,6 +1,4 @@
-import {
-    IFilter
-} from '../Filter';
+import {IFilter} from '../Filter';
 
 export interface IEntry {
     filters: IFilter[];
