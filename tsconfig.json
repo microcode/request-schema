@@ -6,9 +6,9 @@
     "module": "commonjs",
     "noImplicitAny": true,
     "downlevelIteration": true,
-    "lib": ["es2017", "es2015", "es7", "es6", "dom"],
+    "lib": ["es2017", "dom"],
     "outDir": "./dist",
-    "target": "es5",
+    "target": "es2017",
     "moduleResolution": "node"
   },
   "include": [

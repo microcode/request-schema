@@ -23,10 +23,10 @@
     chalk "^2.0.0"
     js-tokens "^4.0.0"
 
-"@microcode/pathtree@^0.1.1":
-  version "0.1.1"
-  resolved "https://registry.yarnpkg.com/@microcode/pathtree/-/pathtree-0.1.1.tgz#ce40e684397495b9095b8160c1d7ad038b08dae8"
-  integrity sha512-aeJKWyerTvFBFwZBoplxiH0FCv3NUdjqy6+SlRUQaipN1DdRo1n8z6bU855bzOmeCoTkwtoZfvdbyTXzPDOw9Q==
+"@microcode/pathtree@^0.1.2":
+  version "0.1.2"
+  resolved "https://registry.yarnpkg.com/@microcode/pathtree/-/pathtree-0.1.2.tgz#9166026a602438b07593dd32350e4934ef1c75fc"
+  integrity sha512-BkskNGLnr0HU/+VLsnas5dIzEjYCZ4NgAl+hiWEH88y5InyJK1uo0jiCm8UQd0wuTw0Vu6tYL3aUi27k6GSdPw==
 
 "@types/chai-as-promised@^7.1.2":
   version "7.1.2"

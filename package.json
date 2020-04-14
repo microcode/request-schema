@@ -15,7 +15,7 @@
   },
   "homepage": "https://github.com/microcode/request-schema#readme",
   "dependencies": {
-    "@microcode/pathtree": "^0.1.1",
+    "@microcode/pathtree": "^0.1.2",
     "debug": "^4.1.1",
     "esprima": "^4.0.1",
     "lodash.first": "^3.0.0",
