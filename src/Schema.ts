@@ -82,7 +82,7 @@ export class Schema {
         }
     }
 
-    async run(method: string, path: string, data: any | null = null, context: any | null = null, extra: [string, string][] | null = null) : Promise<any> {
+    async run(method: string, path: string, data: any | null = null, context: any | null = null, extra?: Map<string,string>) : Promise<any> {
         debug('run("%s", "%s", ...)', method, path);
 
         const m = this._methods.get(method);
