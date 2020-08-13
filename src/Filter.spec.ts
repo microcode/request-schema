@@ -1,5 +1,6 @@
-import {FilterData, CompletionCallbackFn} from "./FilterData";
-import {IFilter} from "./Filter";
+import {FilterData} from "./FilterData";
+import {CompletionCallbackFn} from "./IFilterData";
+import {IFilter} from "./IFilter";
 import {IResult, Result} from "./schema/Result";
 
 import * as chai from "chai";
@@ -98,4 +99,5 @@ describe('Filter', function () {
         await filter.run(filterData);
         expect(functions.length).to.equal(1);
     });
+
 });

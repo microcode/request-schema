@@ -5,7 +5,7 @@ import "mocha";
 
 const expect = chai.expect;
 
-describe('Filter', function () {
+describe('Result', function () {
     it('should return value passed in', async function () {
         const result = new Result();
         const value = "foo";
