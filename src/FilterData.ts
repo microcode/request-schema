@@ -9,7 +9,7 @@ export class FilterData implements IFilterData {
     private readonly _method: string;
     private readonly _path: string;
     private readonly _data: string;
-    private readonly _context: string;
+    private readonly _context: any;
     private readonly _params: ParameterMap;
     private readonly _resolve: ResolveFn;
     private readonly _reject: RejectFn;

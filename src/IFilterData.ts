@@ -7,7 +7,7 @@ export interface IFilterData {
     readonly method: string;
     readonly path: string;
     readonly data: string;
-    readonly context: string;
+    readonly context: any;
     readonly params: ParameterMap;
     readonly result: IResult;
 
