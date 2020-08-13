@@ -6,7 +6,7 @@ export type ParameterMap = Map<string,string>;
 export interface IFilterData {
     readonly method: string;
     readonly path: string;
-    readonly data: string;
+    readonly data: any;
     readonly context: any;
     readonly params: ParameterMap;
     readonly result: IResult;

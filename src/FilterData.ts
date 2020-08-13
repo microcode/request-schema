@@ -8,7 +8,7 @@ type OnCompletedFn = (fn: CompletionCallbackFn) => Promise<void>;
 export class FilterData implements IFilterData {
     private readonly _method: string;
     private readonly _path: string;
-    private readonly _data: string;
+    private readonly _data: any;
     private readonly _context: any;
     private readonly _params: ParameterMap;
     private readonly _resolve: ResolveFn;
