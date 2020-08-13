@@ -2,8 +2,9 @@ import {IPathNode, PathTree} from '@microcode/pathtree';
 import {NodeData} from './schema/NodeData';
 import {Entry} from "./schema/Entry";
 import {Arg} from "./schema/Arg";
-import {CompletionCallbackFn, FilterData} from './FilterData';
-import {IFilter} from './Filter';
+import {CompletionCallbackFn} from './IFilterData';
+import {FilterData} from './FilterData';
+import {IFilter} from './IFilter';
 
 import isFunction from 'lodash.isfunction';
 import {PathCapture} from "@microcode/pathtree/dist/PathTree";

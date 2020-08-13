@@ -1,4 +1,4 @@
-import {IFilter} from '../Filter';
+import {IFilter} from '../IFilter';
 
 export interface IEntry {
     filters: IFilter[];

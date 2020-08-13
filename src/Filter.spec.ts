@@ -7,6 +7,12 @@ import "mocha";
 
 const expect = chai.expect;
 
+/* tslint:disable:max-classes-per-file */
+/* tslint:disable:only-arrow-functions */
+/* tslint:disable:no-empty */
+/* tslint:disable:no-unused-expression */
+/* tslint:disable:no-shadowed-variable */
+
 describe('Filter', function () {
     it('should pass on a successful run', async function () {
         class TestFilter extends IFilter {
@@ -26,7 +32,7 @@ describe('Filter', function () {
             }
         }
 
-        let err = undefined;
+        let err;
         const filterData = new FilterData("", "", {}, {}, new Map<string,string>(), async (result: IResult) => {}, async (_err: Error) => {
             err = _err;
         }, async (fn: CompletionCallbackFn) => {}, new Result());
@@ -47,7 +53,7 @@ describe('Filter', function () {
             }
         }
 
-        let err = undefined;
+        let err;
         const filterData = new FilterData("", "", {}, {}, new Map<string,string>(), async (result: IResult) => {}, async (_err: Error) => {
             err = _err;
         }, async (fn: CompletionCallbackFn) => {}, new Result());
@@ -64,7 +70,8 @@ describe('Filter', function () {
             }
         }
 
-        let result : IResult = new Result(), err : Error | undefined = undefined;
+        let result : IResult = new Result();
+        let err : Error | undefined;
         const filterData = new FilterData("", "", {}, {}, new Map<string,string>(), async (_result: IResult) => { result = _result; }, async (_err: Error) => {
             err = _err;
         }, async (fn: CompletionCallbackFn) => {}, new Result());
@@ -84,7 +91,7 @@ describe('Filter', function () {
             }
         }
 
-        let functions = [];
+        const functions = [];
         const filterData = new FilterData("", "", {}, {}, new Map<string,string>(), async (result: IResult) => {}, async (err: Error) => {}, async (func: CompletionCallbackFn) => { functions.push(func); }, new Result());
         const filter = new TestFilter();
 
