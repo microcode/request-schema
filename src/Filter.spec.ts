@@ -12,7 +12,7 @@ const expect = chai.expect;
 describe('Filter', function () {
     it('should pass on a successful run', async function () {
         class TestFilter extends IFilter {
-            async run(_filterData: FilterData) {}
+            async run(_filterData: FilterData) {_filterData;}
         }
 
         const filterData = new FilterData("", "", {}, {}, new Map<string,string>(), async (_result: IResult) => {}, async(_err: Error) => {}, async (_fn: CompletionCallbackFn) => {}, new Result());

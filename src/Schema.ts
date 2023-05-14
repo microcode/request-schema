@@ -36,7 +36,7 @@ export class Schema {
         this._options = Object.assign({
             extraArguments: [],
             errorFilter: (_err: Error) => true,
-            metricFn: (_started: number, _completed: number, _method: string, _path: string, _error: Error | null) => {}
+            metricFn: (_started: number, _completed: number, _method: string, _path: string, _error: Error | null) => {} // eslint-disable-line @typescript-eslint/no-empty-function
         }, options || {});
     }
 
@@ -77,9 +77,9 @@ export class Schema {
         }
 
         const queryArgs = Array.from((function* (s) {
-            const re = /([^=]+)=(?:\:.*?(?:&|$))/gm;
+            const re = /([^=]+)=(?::.*?(?:&|$))/gm;
             let m;
-            while (m = re.exec(s!)) yield m[1]; // tslint:disable-line:no-conditional-assignment
+            while (m = re.exec(s!)) yield m[1]; // eslint-disable-line no-cond-assign
         })(components[2]));
 
         debug('Adding entry to path "%s" ("%s")', path, method);
@@ -287,6 +287,6 @@ export class Schema {
     private static *filterQueryArgs(s: string): Generator<[string, string]> {
         const re = /([^=]+)=(?:(.*?)(?:&|$))/gm;
         let m;
-        while (m = re.exec(s)) yield [m[1]!, m[2]!]; // tslint:disable-line:no-conditional-assignment
+        while (m = re.exec(s)) yield [m[1]!, m[2]!]; // eslint-disable-line no-cond-assign
     }
 }
