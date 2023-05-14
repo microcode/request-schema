@@ -1,21 +1,40 @@
 {
   "compilerOptions": {
+    "strict": true,
+    "alwaysStrict": true,
+    "noImplicitAny": true,
+    "noImplicitThis": true,
+    "strictNullChecks": true,
+    "strictBindCallApply": true,
+    "strictFunctionTypes": true,
+    "strictPropertyInitialization": true,
+    "useUnknownInCatchVariables": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "allowUnusedLabels": false,
+    "allowUnreachableCode": false,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noUncheckedIndexedAccess": true,
+    "noFallthroughCasesInSwitch": true,
+    "exactOptionalPropertyTypes": true,
+    "forceConsistentCasingInFileNames": true,
+    "allowSyntheticDefaultImports": true,
+
     "declaration": true,
     "declarationDir": "./dist",
-    "esModuleInterop": true,
-    "module": "commonjs",
-    "noImplicitAny": true,
-    "downlevelIteration": true,
-    "lib": ["es2017", "dom"],
+    "listEmittedFiles": true,
+    "lib": ["es2020"],
     "outDir": "./dist",
-    "target": "es2017",
-    "moduleResolution": "node"
+    "target": "es2020",
+    "moduleResolution": "node",
+    "module": "CommonJS",
+    "esModuleInterop": true
   },
   "include": [
     "src/**/*"
   ],
   "exclude": [
-    "node_modules", "dist",
     "src/**/*.spec.ts"
   ]
 }

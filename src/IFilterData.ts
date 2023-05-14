@@ -1,4 +1,4 @@
-import { IResult } from "./schema/Result";
+import { IResult } from "./schema/IResult";
 
 export type CompletionCallbackFn = (err: Error | null, result: IResult | null, context: any) => Promise<void>;
 export type ParameterMap = Map<string,string>;

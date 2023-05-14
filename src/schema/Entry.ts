@@ -1,19 +1,10 @@
-import {IFilter} from '../IFilter';
+import { IFilter } from '../IFilter';
+import { IEntry } from './IEntry';
 
-export interface IEntry {
-    filters: IFilter[];
-    func: any;
-    args: [];
-}
-
-export class Entry {
-    private readonly _filters: IFilter[];
-    private readonly _func: any;
+export class Entry implements IEntry {
     private _args: any[];
 
-    constructor(filters: IFilter[], func: any) {
-        this._filters = filters;
-        this._func = func;
+    constructor(private _filters: IFilter[], private _func: any) {
         this._args = [];
     }
 

@@ -1,16 +1,8 @@
-type MetaMap = Map<string,any>;
+import { IResult } from "./IResult";
 
-export interface IResult {
-    readonly value: any | null;
-    readonly meta: MetaMap;
-
-    withValue(v: any) : IResult;
-    addMeta(key: string, value: any) : IResult;
-}
-
-export class Result {
+export class Result implements IResult {
     _value: any | null = null;
-    _meta: MetaMap = new Map<string,any>();
+    _meta = new Map<string,any>();
 
     get value() {
         return this._value;

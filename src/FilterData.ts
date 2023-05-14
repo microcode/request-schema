@@ -1,4 +1,4 @@
-import { IResult } from "./schema/Result";
+import { IResult } from "./schema/IResult";
 import { IFilterData, CompletionCallbackFn, ParameterMap } from "./IFilterData";
 
 type ResolveFn = (result: IResult) => Promise<void>;

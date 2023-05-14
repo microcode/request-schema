@@ -1,4 +1,4 @@
-import {Result} from "./Result";
+import { Result } from "./Result";
 
 import * as chai from "chai";
 import "mocha";
