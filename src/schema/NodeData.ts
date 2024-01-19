@@ -1,5 +1,5 @@
 import { parseScript } from 'esprima';
-import { ExpressionStatement, ArrowFunctionExpression, FunctionExpression } from 'estree';
+import { ExpressionStatement, Pattern } from 'estree';
 
 import first from 'lodash.first';
 
@@ -50,7 +50,15 @@ export class NodeData {
         const tree = parseScript(funcString);
 
         const type = first(tree.body)?.type;
-        let funcArgs = [];
+        let funcArgs: string[] = [];
+
+        function *extractArguments(params: Array<Pattern>) {
+            for (const param of params) {
+                switch (param.type) {
+                    case 'Identifier': yield param.name;
+                }
+            }
+        }
 
         switch (type) {
             case 'ExpressionStatement': {
@@ -62,11 +70,11 @@ export class NodeData {
 
                 switch (statement.expression.type) {
                     case 'ArrowFunctionExpression': {
-                        funcArgs = (statement.expression as ArrowFunctionExpression).params.map((param: any) => param.name);
+                        funcArgs = Array.from(extractArguments(statement.expression.params));
                     } break;
 
                     case 'FunctionExpression': {
-                        funcArgs = (statement.expression as FunctionExpression).params.map((param: any) => param.name);
+                        funcArgs = Array.from(extractArguments(statement.expression.params));
                     } break;
 
                     default: {
