@@ -66,8 +66,6 @@ export class NodeData {
                     } break;
 
                     case 'FunctionExpression': {
-                        console.log(tree);
-                        console.log(statement.expression);
                         funcArgs = (statement.expression as FunctionExpression).params.map((param: any) => param.name);
                     } break;
 
