@@ -1,9 +1,9 @@
-type MetaMap = Map<string,any>;
+type MetaMap = Map<string,unknown>;
 
 export interface IResult {
-    readonly value: any | null;
+    readonly value?: unknown;
     readonly meta: MetaMap;
 
-    withValue(v: any) : IResult;
-    addMeta(key: string, value: any) : IResult;
+    withValue(v: unknown) : IResult;
+    addMeta(key: string, value: unknown) : IResult;
 }

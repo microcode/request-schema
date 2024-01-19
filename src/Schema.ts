@@ -40,7 +40,7 @@ export class Schema {
         }, options || {});
     }
 
-    on(method: string, path: string, ...args: any[]): void {
+    on(method: string, path: string, ...args: unknown[]): void {
         debug('on("%s", "%s", ...)', method, path);
 
         const tree = this._methods.get(method);
@@ -55,7 +55,7 @@ export class Schema {
         }
         const node = tree.insert(components[1]!);
 
-        const filters = args.length > 1 ? args.slice(0, -1) : [];
+        const filters = (args.length > 1 ? args.slice(0, -1) : []) as IFilter[]; // TODO: verify filter types
         const func = args.slice(-1)[0];
 
         for (const filter of filters) {
@@ -70,7 +70,7 @@ export class Schema {
             throw new Error("Not a function");
         }
 
-        let data = node.data;
+        let data = node.data as NodeData | undefined;
         if (!data) {
             const wcArgs = Schema.getWildcardArguments(node);
             node.data = data = new NodeData(path, wcArgs);
@@ -79,7 +79,7 @@ export class Schema {
         const queryArgs = Array.from((function* (s) {
             const re = /([^=]+)=(?::.*?(?:&|$))/gm;
             let m;
-            while (m = re.exec(s!)) yield m[1]; // eslint-disable-line no-cond-assign
+            while (m = re.exec(s!)) yield (m[1] as string); // eslint-disable-line no-cond-assign
         })(components[2]));
 
         debug('Adding entry to path "%s" ("%s")', path, method);
@@ -266,7 +266,7 @@ export class Schema {
             return undefined;
         }
 
-        const nodeData = node.data;
+        const nodeData = node.data as NodeData | undefined;
         if (!nodeData) {
             return undefined;
         }

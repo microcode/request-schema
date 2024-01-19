@@ -1,10 +1,11 @@
 import { IFilter } from '../IFilter';
-import { IEntry } from './IEntry';
+import { IEntry, IEntryFunction } from './IEntry';
+import { Arg } from './Arg';
 
 export class Entry implements IEntry {
-    private _args: any[];
+    private _args: Arg[];
 
-    constructor(private _filters: IFilter[], private _func: any) {
+    constructor(private _filters: IFilter[], private _func: IEntryFunction) { 
         this._args = [];
     }
 
@@ -12,15 +13,15 @@ export class Entry implements IEntry {
         return this._filters;
     }
 
-    get func(): any {
+    get func(): IEntryFunction {
         return this._func;
     }
 
-    get args(): any[] {
+    get args(): Arg[] {
         return this._args;
     }
 
-    set args(value: any[]) {
+    set args(value: Arg[]) {
         this._args = value;
     }
 }

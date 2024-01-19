@@ -29,6 +29,8 @@ describe('Schema', function () {
 
         const schema = new Schema([readMethod, writeMethod]);
 
+        type TestData = { data: number };
+
         let store = { data: 0 };
 
         schema.on(readMethod, testUrl, async () => {
@@ -40,13 +42,13 @@ describe('Schema', function () {
         });
 
         await schema.run(readMethod, testUrl).then(result => {
-            expect(result.value).to.not.be.null;
-            expect(result.value.data).to.equal(0);
+            expect(result.value).to.not.be.undefined;
+            expect((result.value as TestData).data).to.equal(0);
         });
         await schema.run(writeMethod, testUrl, { data: 1 });
         await schema.run(readMethod, testUrl).then(result => {
-            expect(result.value).to.not.be.null;
-            expect(result.value.data).to.equal(1);
+            expect(result.value).to.not.be.undefined;
+            expect((result.value as TestData).data).to.equal(1);
         });
     });
 
@@ -551,7 +553,7 @@ describe('Schema', function () {
         const capture = new Map();
         const nodeData = schema.get(readMethod, '/test/1234', capture);
         expect(!!nodeData).to.be.true;
-        expect(nodeData.entries.length).to.equal(1);
+        expect(nodeData!.entries.length).to.equal(1);
 
         expect(capture.has('value')).to.be.true;
         expect(capture.get('value')).to.equal('1234');
@@ -670,13 +672,13 @@ describe('Schema', function () {
 
         const nodeData = schema.get(readMethod, testUrl);
         expect(!!nodeData).to.be.true;
-        expect(nodeData.entries.length).to.equal(1);
+        expect(nodeData!.entries.length).to.equal(1);
 
-        const entry = nodeData.entries[0];
+        const entry = nodeData!.entries[0];
         expect(!!entry).to.be.true;
-        expect(entry.filters.length).to.equal(1);
+        expect(entry!.filters.length).to.equal(1);
 
-        const filter = entry.filters[0];
+        const filter = entry!.filters[0];
         expect(!!filter).to.be.true;
         expect(filter instanceof TestFilter).to.be.true;
     });
