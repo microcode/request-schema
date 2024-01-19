@@ -1,22 +1,29 @@
-import {
-    parseScript
-} from 'esprima';
+import { parseScript } from 'esprima';
+import { ExpressionStatement, ArrowFunctionExpression, FunctionExpression } from 'estree';
 
 import first from 'lodash.first';
 
-import {IEntry} from './Entry';
-import {Arg} from './Arg';
+import { IEntry, IEntryFunction } from './IEntry';
+import { Arg } from './Arg';
 
 import Debug from "debug";
 const debug = Debug('request-schema:data');
 
-export class NodeData {
-    _args: string[];
-    _entries: IEntry[];
+type ArgArray = [string,boolean][]
 
-    constructor(args: string[]) {
+export class NodeData {
+    private _path: string;
+    private _args: string[];
+    private _entries: IEntry[];
+
+    constructor(path: string, args: string[]) {
+        this._path = path;
         this._args = args;
         this._entries = [];
+    }
+
+    get path() {
+        return this._path;
     }
 
     get entries() {
@@ -28,10 +35,9 @@ export class NodeData {
         this._entries.push(entry);
     }
 
-    static getFunctionArguments(func: any, nodeArgs: string[], entryArgs: string[], extraArgs: string[]) {
-        const maybe = (x: any) => (x || {});
+    static getFunctionArguments(func: IEntryFunction, nodeArgs: string[], entryArgs: string[], extraArgs: string[]) {
         const argsMap = new Map<string,boolean>(
-            [].concat(
+            ([] as ArgArray).concat(
                 nodeArgs.map(arg => [arg, false])
             ).concat(
                 entryArgs.map(arg => [arg, true])
@@ -43,16 +49,33 @@ export class NodeData {
         const funcString = "(" + func.toString() + ")";
         const tree = parseScript(funcString);
 
-        const type = maybe(first(tree.body)).type;
+        const type = first(tree.body)?.type;
         let funcArgs = [];
 
         switch (type) {
             case 'ExpressionStatement': {
-                funcArgs = maybe(maybe(first(tree.body)).expression).params.map((param: any) => param.name);
-            } break;
+                const statement = first(tree.body) as ExpressionStatement | undefined;
+                if (!statement) {
+                    debug('Could not find expression body for "%s"', type);
+                    throw new Error("Could not expression body");
+                }
 
-            case 'FunctionDeclaration': {
-                funcArgs = maybe(first(tree.body)).params.map((param: any) => param.name);
+                switch (statement.expression.type) {
+                    case 'ArrowFunctionExpression': {
+                        funcArgs = (statement.expression as ArrowFunctionExpression).params.map((param: any) => param.name);
+                    } break;
+
+                    case 'FunctionExpression': {
+                        console.log(tree);
+                        console.log(statement.expression);
+                        funcArgs = (statement.expression as FunctionExpression).params.map((param: any) => param.name);
+                    } break;
+
+                    default: {
+                        debug('Unknown expression type "%s"', statement.expression.type);
+                        throw new Error("Unknown expression type");
+                    }
+                }
             } break;
 
             default: {
@@ -67,7 +90,7 @@ export class NodeData {
                 throw new Error("Unknown function parameter");
             }
 
-            return new Arg(arg, argsMap.get(arg));
+            return new Arg(arg, argsMap.get(arg)!);
         });
     }
 }

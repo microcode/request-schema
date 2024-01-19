@@ -1,38 +1,46 @@
-import {IPathNode, PathTree} from '@microcode/pathtree';
-import {NodeData} from './schema/NodeData';
-import {Entry} from "./schema/Entry";
-import {Arg} from "./schema/Arg";
-import {CompletionCallbackFn} from './IFilterData';
-import {FilterData} from './FilterData';
-import {IFilter} from './IFilter';
+import {
+    IPathNode,
+    PathTree,
+    PathCapture
+} from '@microcode/pathtree';
+import { NodeData } from './schema/NodeData';
+import { Entry } from "./schema/Entry";
+import { Arg } from "./schema/Arg";
+import { CompletionCallbackFn } from './IFilterData';
+import { FilterData } from './FilterData';
+import { IFilter } from './IFilter';
 
 import isFunction from 'lodash.isfunction';
-import {PathCapture} from "@microcode/pathtree/dist/PathTree";
-import {IResult, Result} from "./schema/Result";
+
+import { Result } from "./schema/Result";
 
 import Debug from "debug";
+import { IResult } from './schema/IResult';
 const debug = Debug('request-schema:schema');
 
 type ErrorFilterFn = (error: Error) => boolean;
+type MetricFn = (started: number, completed: number, method: string, path: string, error: Error | null) => void;
 
 export interface SchemaOptions {
     extraArguments: string[];
     errorFilter: ErrorFilterFn;
+    metricFn: MetricFn;
 }
 
 export class Schema {
     _methods: Map<string,PathTree>;
     _options: SchemaOptions;
 
-    constructor(methods: string[], options: SchemaOptions | null = null) {
+    constructor(methods: string[], options: Partial<SchemaOptions> | null = null) {
         this._methods = new Map(methods.map(method => [method, new PathTree()]));
         this._options = Object.assign({
             extraArguments: [],
-            errorFilter: (err: Error) => true
+            errorFilter: (_err: Error) => true,
+            metricFn: (_started: number, _completed: number, _method: string, _path: string, _error: Error | null) => {} // eslint-disable-line @typescript-eslint/no-empty-function
         }, options || {});
     }
 
-    on(method: string, path: string, ...args: any[]): void {
+    on(method: string, path: string, ...args: unknown[]): void {
         debug('on("%s", "%s", ...)', method, path);
 
         const tree = this._methods.get(method);
@@ -45,9 +53,9 @@ export class Schema {
         if (!components) {
             throw new Error("Could not parse path");
         }
-        const node = tree.insert(components[1]);
+        const node = tree.insert(components[1]!);
 
-        const filters = args.length > 1 ? args.slice(0, -1) : [];
+        const filters = (args.length > 1 ? args.slice(0, -1) : []) as IFilter[]; // TODO: verify filter types
         const func = args.slice(-1)[0];
 
         for (const filter of filters) {
@@ -62,16 +70,16 @@ export class Schema {
             throw new Error("Not a function");
         }
 
-        let data = node.data;
+        let data = node.data as NodeData | undefined;
         if (!data) {
             const wcArgs = Schema.getWildcardArguments(node);
-            node.data = data = new NodeData(wcArgs);
+            node.data = data = new NodeData(path, wcArgs);
         }
 
         const queryArgs = Array.from((function* (s) {
-            const re = /([^=]+)=(?:\:.*?(?:&|$))/gm;
+            const re = /([^=]+)=(?::.*?(?:&|$))/gm;
             let m;
-            while (m = re.exec(s)) yield m[1]; // tslint:disable-line:no-conditional-assignment
+            while (m = re.exec(s!)) yield (m[1] as string); // eslint-disable-line no-cond-assign
         })(components[2]));
 
         debug('Adding entry to path "%s" ("%s")', path, method);
@@ -83,7 +91,7 @@ export class Schema {
         }
     }
 
-    async run(method: string, path: string, data: any | null = null, context: any | null = null, extra?: Map<string,string>) : Promise<any> {
+    async run(method: string, path: string, data: any | null = null, context: any | null = null, extra?: Map<string,string>) : Promise<IResult> {
         debug('run("%s", "%s", ...)', method, path);
 
         const m = this._methods.get(method);
@@ -93,22 +101,25 @@ export class Schema {
         }
 
         const components = /^(.*?)(?:\?(.*))?$/.exec(path);
-        if (!components) {
+        if (!components ) {
             debug('Could not parse path "%s"', path);
             throw new Error("Could not parse path");
         }
 
         const capture = new Map<string,string>(extra);
-        const node = m.find(components[1], capture);
+        const node = m.find(components[1]!, capture);
         if (!node) {
             debug('Could not find function for path "%s" ("%s")', path, method);
             throw new Error("Could not find function");
         }
 
-        const nodeData = node.data;
+        const nodeData = (node.data as NodeData);
         if (!nodeData) {
-            return;
+            debug('Could not find node data for path "%s" ("%s")', path, method);
+            throw new Error("Could not find node data");
         }
+
+        const started = Date.now();
 
         let callbacks: CompletionCallbackFn[] = [];
         const registerCallback = (cb: CompletionCallbackFn): Promise<void> => {
@@ -119,8 +130,8 @@ export class Schema {
         let isResolved = false;
         let isRejected = false;
 
-        let resolveResult;
-        let rejectError;
+        let resolveResult: IResult | undefined = undefined;
+        let rejectError: Error | undefined = undefined;
 
         const onResolve = async (_result: IResult): Promise<void> => {
             if (isResolved) {
@@ -151,7 +162,7 @@ export class Schema {
             callbacks = [];
 
             for (const cb of cbs) {
-                await cb(_err, undefined, context);
+                await cb(_err, null, context);
             }
         };
 
@@ -169,7 +180,7 @@ export class Schema {
                     const filterData = new FilterData(method, path, data, context, capture, onResolve, onReject, registerCallback, result);
                     try {
                         await filter.run(filterData);
-                    } catch (err) {
+                    } catch (err: any) {
                         filterData.reject(err);
                     }
                 }
@@ -180,7 +191,7 @@ export class Schema {
             }
 
             if (isRejected) {
-                if (this._options.errorFilter(rejectError)) {
+                if (this._options.errorFilter(rejectError!)) {
                     continue;
                 } else {
                     break;
@@ -199,11 +210,11 @@ export class Schema {
                         case 'context': return context;
                         default: {
                             if (capture.has(arg.name)) {
-                                return decodeURIComponent(capture.get(arg.name));
+                                return decodeURIComponent(capture.get(arg.name)!);
                             }
 
                             if(queryArgs && queryArgs.has(arg.name)) {
-                                return decodeURIComponent(queryArgs.get(arg.name));
+                                return decodeURIComponent(queryArgs.get(arg.name)!);
                             }
 
                             if (!arg.optional) {
@@ -221,9 +232,9 @@ export class Schema {
                     result.withValue(await entry.func.apply(context, args))
                 );
                 break;
-            } catch (err) {
+            } catch (err: any) {
                 await onReject(err);
-                if (!this._options.errorFilter(rejectError)) {
+                if (!this._options.errorFilter(rejectError!)) {
                     break;
                 }
             }
@@ -233,8 +244,10 @@ export class Schema {
             rejectError = new Error("No result");
         }
 
+        this._options.metricFn(started, Date.now(), method, nodeData.path, rejectError || null);
+
         if (isResolved) {
-            return resolveResult;
+            return resolveResult!;
         } else {
             throw rejectError;
         }
@@ -253,7 +266,7 @@ export class Schema {
             return undefined;
         }
 
-        const nodeData = node.data;
+        const nodeData = node.data as NodeData | undefined;
         if (!nodeData) {
             return undefined;
         }
@@ -263,9 +276,9 @@ export class Schema {
 
     private static getWildcardArguments(node: IPathNode): string[] {
         const args: string[] = [];
-        for (; node !== null; node = node.parent) {
-            if (node.isWildcard) {
-                args.unshift(node.key);
+        for (let _node: IPathNode | null = node; _node !== null; _node = _node.parent) {
+            if (_node.isWildcard) {
+                args.unshift(_node.key);
             }
         }
         return args;
@@ -274,6 +287,6 @@ export class Schema {
     private static *filterQueryArgs(s: string): Generator<[string, string]> {
         const re = /([^=]+)=(?:(.*?)(?:&|$))/gm;
         let m;
-        while (m = re.exec(s)) yield [m[1], m[2]]; // tslint:disable-line:no-conditional-assignment
+        while (m = re.exec(s)) yield [m[1]!, m[2]!]; // eslint-disable-line no-cond-assign
     }
 }

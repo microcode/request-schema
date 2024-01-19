@@ -1,17 +1,11 @@
 import {Schema} from "./Schema";
 
 import * as chai from "chai";
-import chaiAsPromised from "chai-as-promised";
 
 import "mocha";
-import {IFilterData} from "./IFilterData";
-import {IFilter} from "./IFilter";
-import {IResult} from "./schema/Result";
-
-before(() => {
-    chai.should();
-    chai.use(chaiAsPromised);
-});
+import { IFilterData } from "./IFilterData";
+import { IFilter } from "./IFilter";
+import { IResult } from "./schema/IResult";
 
 const expect = chai.expect;
 
@@ -21,13 +15,21 @@ const expect = chai.expect;
 /* tslint:disable:no-empty */
 /* tslint:disable:max-classes-per-file */
 
+before(function () {
+    chai.should();
+});
+
+
 describe('Schema', function () {
+
     it('should register and call methods properly', async function () {
         const testUrl = '/test';
         const readMethod = 'read';
         const writeMethod = 'write';
 
         const schema = new Schema([readMethod, writeMethod]);
+
+        type TestData = { data: number };
 
         let store = { data: 0 };
 
@@ -40,13 +42,13 @@ describe('Schema', function () {
         });
 
         await schema.run(readMethod, testUrl).then(result => {
-            expect(result.value).to.not.be.null;
-            expect(result.value.data).to.equal(0);
+            expect(result.value).to.not.be.undefined;
+            expect((result.value as TestData).data).to.equal(0);
         });
         await schema.run(writeMethod, testUrl, { data: 1 });
         await schema.run(readMethod, testUrl).then(result => {
-            expect(result.value).to.not.be.null;
-            expect(result.value.data).to.equal(1);
+            expect(result.value).to.not.be.undefined;
+            expect((result.value as TestData).data).to.equal(1);
         });
     });
 
@@ -82,19 +84,66 @@ describe('Schema', function () {
         expect(function_executed).to.be.true;
     });
 
+    it('should issue a metric callback on success', async function () {
+        const readMethod = 'read';
+        const path = '/foo/:test_id/bar';
+        const id = '1234';
+        let metricCalled = false;
+        const schema = new Schema([readMethod], {
+            metricFn: (_started: number, _completed: number, _method: string, _path: string, _error: Error | null) => {
+                expect(_method).to.equal(readMethod);
+                expect(_path).to.equal(path);
+                metricCalled = true;
+            }
+        });
+
+        schema.on(readMethod, path, async (test_id: string) => {test_id;});
+
+        await schema.run(readMethod,'/foo/' + id + '/bar');
+        expect(metricCalled).to.be.true;
+    });
+
+    it('should issue a metric callback on failure', async function () {
+        const readMethod = 'read';
+        const path = '/foo/:test_id/bar';
+        const id = '1234';
+        let metricCalled = false;
+        const schema = new Schema([readMethod], {
+            metricFn: (_started: number, _completed: number, _method: string, _path: string, _error: Error | null) => {
+                expect(_method).to.equal(readMethod);
+                expect(_path).to.equal(path);
+                metricCalled = true;
+            }
+        });
+
+        schema.on(readMethod, path, async (test_id: string) => {
+            test_id;
+            throw new Error("Method failed");
+        });
+
+        try {
+            await schema.run(readMethod,'/foo/' + id + '/bar');
+            throw new Error("Should not happen");
+        } catch (err) {
+            expect((err as Error).message).to.equal("Method failed");
+        }
+
+        expect(metricCalled).to.be.true;
+    });
+
     it('should allow most function signatures', async function () {
         const schema = new Schema(['read']);
 
-        await schema.on('read', '/foo/:a', function (a: string) {});
-        await schema.on('read', '/foo/:a', function func(a: string) {});
-        await schema.on('read', '/foo/:a/:b', async function func(a: string,b: string) {});
-        await schema.on('read', '/foo/:a', (a: string) => {});
-        await schema.on('read', '/foo/:a/:b', async (a: string,b: string) => {});
+        await schema.on('read', '/foo/:a', function (a: string) {a;});
+        await schema.on('read', '/foo/:a', function func(a: string) {a;});
+        await schema.on('read', '/foo/:a/:b', async function func(a: string,b: string) {a;b;});
+        await schema.on('read', '/foo/:a', (a: string) => {a;});
+        await schema.on('read', '/foo/:a/:b', async (a: string,b: string) => {a;b;});
     });
 
     it('should not allow unknown arguments', async function () {
         const schema = new Schema(['read']);
-        expect(() => { schema.on('read', '/foo', function func(a: string) {}); }).to.throw("Unknown function parameter");
+        expect(() => { schema.on('read', '/foo', function func(a: string) {a;}); }).to.throw("Unknown function parameter");
     });
 
     it('should allow extra arguments', async function () {
@@ -102,7 +151,7 @@ describe('Schema', function () {
         const origValue = 'bar';
         const valueName = 'value';
         const paramValue = '1234';
-        const schema = new Schema([method], { extraArguments: [valueName], errorFilter: (err: Error) => true });
+        const schema = new Schema([method], { extraArguments: [valueName], errorFilter: (_err: Error) => true });
 
         let matched = false;
         let called = false;
@@ -120,17 +169,21 @@ describe('Schema', function () {
 
     it('should fail calling if a node argument value cannot be found', async function () {
         const method = 'emit';
-        const origValue = 'bar';
         const valueName = 'value';
-        const paramValue = '1234';
-        const schema = new Schema([method], { extraArguments: [valueName], errorFilter: (err: Error) => true });
+        const schema = new Schema([method], { extraArguments: [valueName], errorFilter: (_err: Error) => true });
 
         let called = false;
         await schema.on(method, '/foo/:a', function (value: string, a: string) {
+            value;a;
             called = true;
         });
 
-        await schema.run(method, '/foo/1234').should.be.rejectedWith(Error, "Argument value not found");
+        try {
+            await schema.run(method, '/foo/1234');
+            throw new Error("This should not be called");
+        } catch (err) {
+            expect((err as Error).message).to.equal("Argument value not found");
+        }
 
         expect(called).to.be.false;
     });
@@ -144,8 +197,9 @@ describe('Schema', function () {
     it('can access context variable', async function () {
         const schema = new Schema(['read']);
         const value = '1234';
+        type Context = { value: string };
 
-        schema.on('read', '/foo', function foo() {
+        schema.on('read', '/foo', function foo(this: Context) {
             expect(this.value).to.equal(value);
         });
         schema.on('read', '/foo2', (context: any) => {
@@ -194,7 +248,7 @@ describe('Schema', function () {
 
         let filter_executed = false;
         class TestFilter extends IFilter {
-            async run(data: IFilterData) {
+            async run(_data: IFilterData) {
                 filter_executed = true;
             }
         }
@@ -219,7 +273,7 @@ describe('Schema', function () {
         const schema = new Schema(['read']);
 
         class TestFilter extends IFilter {
-            async run(data: IFilterData) {
+            async run(_data: IFilterData) {
                 throw new Error("Rejected");
             }
         }
@@ -229,7 +283,12 @@ describe('Schema', function () {
             function_executed = true;
         });
 
-        await schema.run('read', '/foo', {}, {}).should.be.rejectedWith(Error, "Rejected");
+        try {
+            await schema.run('read', '/foo', {}, {});
+            throw new Error("This should not be called");
+        } catch (err) {
+            expect((err as Error).message).to.equal("Rejected");
+        }
 
         expect(function_executed).to.be.false;
     });
@@ -238,7 +297,7 @@ describe('Schema', function () {
         const schema = new Schema(['read']);
 
         class TestFilter extends IFilter {
-            async run(data: IFilterData) {
+            async run(_data: IFilterData) {
                 throw new Error("Rejected");
             }
         }
@@ -261,11 +320,11 @@ describe('Schema', function () {
     it('won\'t run the second function if first is rejected with a non-filtered error', async function () {
         const schema = new Schema(['read'], {
             extraArguments: [],
-            errorFilter: (err) => false
+            errorFilter: (_err) => false
         });
 
         class TestFilter extends IFilter {
-            async run(data: IFilterData) {
+            async run(_data: IFilterData) {
                 throw new Error("Rejected");
             }
         }
@@ -279,7 +338,12 @@ describe('Schema', function () {
             function2_executed = true;
         });
 
-        await schema.run('read', '/foo', {}, {}).should.be.rejectedWith(Error, "Rejected");
+        try {
+            await schema.run('read', '/foo', {}, {});
+            throw new Error("This should not be called");
+        } catch (err) {
+            expect((err as Error).message).to.equal("Rejected");
+        }
 
         expect(function1_executed).to.be.false;
         expect(function2_executed).to.be.false;
@@ -363,7 +427,12 @@ describe('Schema', function () {
             return testData;
         });
 
-        await schema.run(method, path).should.be.rejectedWith(Error, "on_resolve already called");
+        try {
+            await schema.run(method, path);
+            throw new Error("This should not be called");
+        } catch (err) {
+            expect((err as Error).message).to.equal("on_resolve already called");
+        }
     });
 
     it('won\'t run second filter if first one fails', async function () {
@@ -378,14 +447,14 @@ describe('Schema', function () {
         let func = false;
 
         class TestFilter1 extends IFilter {
-            async run(data: IFilterData) {
+            async run(_data: IFilterData) {
                 filter1 = true;
                 throw new Error("This should happen");
             }
         }
 
         class TestFilter2 extends IFilter {
-            async run(data: IFilterData) {
+            async run(_data: IFilterData) {
                 filter2 = true;
                 throw new Error("This should not happen");
             }
@@ -396,7 +465,12 @@ describe('Schema', function () {
             return testData;
         });
 
-        await schema.run(method, path).should.be.rejectedWith(Error, "This should happen");
+        try {
+            await schema.run(method, path);
+            throw new Error("This should not be called");
+        } catch (err) {
+            expect((err as Error).message).to.equal("This should happen");
+        }
 
         expect(filter1).to.be.true;
         expect(filter2).to.be.false;
@@ -415,7 +489,7 @@ describe('Schema', function () {
             async run(filterData: IFilterData) {
                 await filterData.onCompleted(async (err: Error | null, _result: IResult | null, context: any) => {
                     expect(!err).to.be.true;
-                    expect(_result.value).to.equal(testData);
+                    expect(_result!.value).to.equal(testData);
                     expect(context.is_context).to.be.true;
                     callback_executed = true;
                 });
@@ -437,7 +511,6 @@ describe('Schema', function () {
 
     it('will execute completion callbacks in reverse order', async function () {
         const schema = new Schema(['read']);
-        const testData = "test";
         const testContext = {
             is_context: true
         };
@@ -447,7 +520,7 @@ describe('Schema', function () {
 
         class TestFilter1 extends IFilter {
             async run(filterData: IFilterData) {
-                await filterData.onCompleted(async (err: Error | null, result: IResult | null, context: any) => {
+                await filterData.onCompleted(async (_err: Error | null, _result: IResult | null, _context: any) => {
                     count++;
                     last = 1;
                 });
@@ -456,7 +529,7 @@ describe('Schema', function () {
 
         class TestFilter2 extends IFilter {
             async run(filterData: IFilterData) {
-                await filterData.onCompleted(async (err: Error | null, result: IResult | null, context: any) => {
+                await filterData.onCompleted(async (_err: Error | null, _result: IResult | null, _context: any) => {
                     count++;
                     last = 2;
                 });
@@ -480,7 +553,7 @@ describe('Schema', function () {
         const capture = new Map();
         const nodeData = schema.get(readMethod, '/test/1234', capture);
         expect(!!nodeData).to.be.true;
-        expect(nodeData.entries.length).to.equal(1);
+        expect(nodeData!.entries.length).to.equal(1);
 
         expect(capture.has('value')).to.be.true;
         expect(capture.get('value')).to.equal('1234');
@@ -510,7 +583,7 @@ describe('Schema', function () {
                 }
 
                 const entry = this._queue[0];
-                entry.data.onCompleted(async (err: Error | null, result: IResult | null, context: any) => {
+                entry.data.onCompleted(async (_err: Error | null, _result: IResult | null, _context: any) => {
                     this._queue.shift();
                     this.pop();
                 });
@@ -537,7 +610,6 @@ describe('Schema', function () {
     });
 
     it('should properly handle errors while filters scheduling execution', async function () {
-        const testUrl = '/test';
         const readMethod = 'read';
         const schema = new Schema([readMethod]);
 
@@ -560,7 +632,7 @@ describe('Schema', function () {
                 }
 
                 const entry = this._queue[0];
-                entry.data.onCompleted(async (err: Error | null, result: IResult | null, context: any) => {
+                entry.data.onCompleted(async (_err: Error | null, _result: IResult | null, _context: any) => {
                     this._queue.shift();
                     this.pop();
                 });
@@ -593,20 +665,20 @@ describe('Schema', function () {
         const schema = new Schema([readMethod]);
 
         class TestFilter extends IFilter {
-            async run(data: IFilterData) {}
+            async run(_data: IFilterData) {}
         }
 
         schema.on(readMethod, testUrl, new TestFilter(), async () => {});
 
         const nodeData = schema.get(readMethod, testUrl);
         expect(!!nodeData).to.be.true;
-        expect(nodeData.entries.length).to.equal(1);
+        expect(nodeData!.entries.length).to.equal(1);
 
-        const entry = nodeData.entries[0];
+        const entry = nodeData!.entries[0];
         expect(!!entry).to.be.true;
-        expect(entry.filters.length).to.equal(1);
+        expect(entry!.filters.length).to.equal(1);
 
-        const filter = entry.filters[0];
+        const filter = entry!.filters[0];
         expect(!!filter).to.be.true;
         expect(filter instanceof TestFilter).to.be.true;
     });
